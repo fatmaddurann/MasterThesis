@@ -15,5 +15,7 @@
   "env": {
     "NEXT_PUBLIC_API_URL": "https://visionsleuth-ai-backend.onrender.com",
     "NEXT_PUBLIC_WS_URL": "wss://visionsleuth-ai-backend.onrender.com/ws"
-  }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next"
 } 

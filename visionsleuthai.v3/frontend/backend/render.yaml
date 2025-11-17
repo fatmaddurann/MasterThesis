@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: visionsleuthai-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "visionsleuth-ai-backend.onrender.com"
+      # Optional: GCP Configuration (uncomment if using GCP)
+      # - key: GCP_BUCKET_NAME
+      #   value: "your-bucket-name"
+      # - key: GCP_SERVICE_ACCOUNT_KEY
+      #   value: "base64-encoded-service-account-key"
+
