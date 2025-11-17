@@ -229,7 +229,7 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
                   <CheckCircleIcon className="w-8 h-8 text-green-600" />
                   <div className="ml-3">
                     <p className="text-sm font-medium text-green-600">Processing Efficiency</p>
-                    <p className="text-2xl font-bold text-green-900">{analysisData.model_performance.processing_efficiency.toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-green-900">{analysisData.model_performance?.processing_efficiency?.toFixed(1) || 'N/A'}%</p>
                   </div>
                 </div>
               </div>
