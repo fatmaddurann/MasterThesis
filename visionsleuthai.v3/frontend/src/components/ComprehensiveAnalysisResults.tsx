@@ -136,9 +136,9 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
   ) || 0;
 
   // Get unique detections by type
-  const detectionTypes = [...new Set(analysisData.frames?.flatMap(frame => 
+  const detectionTypes = Array.from(new Set(analysisData.frames?.flatMap(frame => 
     frame.detections.map(det => det.class_name)
-  ) || [])];
+  ) || []));
 
   // Get timeline data
   const timelineData = analysisData.frames?.map((frame, index) => ({
