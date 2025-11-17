@@ -1,0 +1,65 @@
+.academic-report {
+  font-family: 'Times New Roman', serif;
+  line-height: 1.6;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.report-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #333;
+  padding-bottom: 1rem;
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.metric-card {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  text-align: center;
+}
+
+.academic-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.academic-table th, .academic-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.academic-table th {
+  background-color: #f2f2f2;
+}
+
+.risk-level {
+  font-weight: bold;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.risk-level.low { background-color: #d4edda; color: #155724; }
+.risk-level.medium { background-color: #fff3cd; color: #856404; }
+.risk-level.high { background-color: #f8d7da; color: #721c24; }
+
+.references {
+  font-size: 0.9rem;
+  margin-top: 2rem;
+} 
