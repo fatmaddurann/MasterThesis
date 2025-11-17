@@ -1,0 +1,7 @@
+# Vercel ignore file - ensure Vercel uses correct directory
+backend/
+__pycache__/
+*.pyc
+*.pt
+*.pth
+
