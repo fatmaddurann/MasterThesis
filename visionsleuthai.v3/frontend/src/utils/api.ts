@@ -31,6 +31,9 @@ export interface AnalysisResult {
   error: string | null;
   processingDate: string;
   modelVersion: string;
+  progress?: number;
+  processed_frames?: number;
+  total_frames?: number;
   summary: {
     duration: number;
     totalFrames: number;
