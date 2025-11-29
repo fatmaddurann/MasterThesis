@@ -1,5 +1,5 @@
 'use client';
-// Comprehensive Analysis Results Component - Updated 2025-11-17
+// Comprehensive Analysis Results Component - Updated 2025-11-29
 
 import React, { useState, useRef } from 'react';
 import { 
