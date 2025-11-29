@@ -222,7 +222,7 @@ const ForensicReport: React.FC<ForensicReportProps> = ({ report }) => {
               <p><strong>Stabilite:</strong> Yüksek</p>
             </div>
             <div>
-              <p><strong>Doğruluk:</strong> {(report.model_performance?.average_confidence * 100)?.toFixed(1)}%</p>
+              <p><strong>Doğruluk:</strong> {report.model_performance?.average_confidence !== undefined ? ((report.model_performance.average_confidence * 100).toFixed(1)) : 'N/A'}%</p>
               <p><strong>Güvenilirlik:</strong> Yüksek</p>
             </div>
           </div>
