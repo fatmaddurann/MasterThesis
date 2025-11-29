@@ -133,7 +133,7 @@ const ForensicReport: React.FC<ForensicReportProps> = ({ report }) => {
               <p><strong>Video Formatı:</strong> {report.summary?.format}</p>
             </div>
             <div>
-              <p><strong>Ortalama Güven:</strong> {(report.model_performance?.average_confidence * 100)?.toFixed(1)}%</p>
+              <p><strong>Ortalama Güven:</strong> {report.model_performance?.average_confidence !== undefined ? ((report.model_performance.average_confidence * 100).toFixed(1)) : 'N/A'}%</p>
               <p><strong>İşleme Süresi:</strong> {report.model_performance?.inference_time?.toFixed(2)} ms/kare</p>
               <p><strong>Video Boyutu:</strong> {(report.summary?.videoSize / 1024 / 1024)?.toFixed(2)} MB</p>
             </div>
