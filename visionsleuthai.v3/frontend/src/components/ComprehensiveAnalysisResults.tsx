@@ -135,6 +135,8 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
   const highRiskDetections = analysisData.frames?.reduce((sum, frame) => 
     sum + frame.detections.filter(det => det.risk_score >= 0.8).length, 0
   ) || 0;
+  const avgConfidence = analysisData.model_performance?.average_confidence;
+  const processingEfficiency = analysisData.model_performance?.processing_efficiency;
 
   // Get unique detections by type
   const detectionTypes = Array.from(new Set(analysisData.frames?.flatMap(frame => 
@@ -230,7 +232,9 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
                   <CheckCircleIcon className="w-8 h-8 text-green-600" />
                   <div className="ml-3">
                     <p className="text-sm font-medium text-green-600">Processing Efficiency</p>
-                    <p className="text-2xl font-bold text-green-900">{analysisData.model_performance?.processing_efficiency?.toFixed(1) || 'N/A'}%</p>
+                    <p className="text-2xl font-bold text-green-900">
+                      {processingEfficiency !== undefined ? processingEfficiency.toFixed(1) : 'N/A'}%
+                    </p>
                   </div>
                 </div>
               </div>
@@ -273,7 +277,9 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
                 </div>
                 <div>
                   <p className="text-green-700 font-medium">Avg Confidence</p>
-                  <p className="font-semibold text-green-900">{analysisData.model_performance?.average_confidence ? (analysisData.model_performance.average_confidence * 100).toFixed(1) : 'N/A'}%</p>
+                  <p className="font-semibold text-green-900">
+                    {avgConfidence !== undefined ? ((avgConfidence * 100).toFixed(1)) : 'N/A'}%
+                  </p>
                 </div>
                 <div>
                   <p className="text-green-700 font-medium">Evidence Quality</p>
