@@ -43,11 +43,11 @@ origins = [
     "http://localhost:8000",
 ]
 
-# Add CORS middleware
+# Add CORS middleware - MUST be added BEFORE other middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now (can be restricted later)
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Must be False when using wildcard origins
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -80,12 +80,21 @@ async def add_process_time_header(request: Request, call_next):
 @app.middleware("http")
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
-        return await call_next(request)
+        response = await call_next(request)
+        # Ensure CORS headers are present
+        if "Access-Control-Allow-Origin" not in response.headers:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal server error", "error": str(e) if DEBUG else None}
+            content={"detail": "Internal server error", "error": str(e) if DEBUG else None},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "*",
+            }
         )
 
 # Include routers
