@@ -2,7 +2,10 @@ services:
   - type: web
     name: visionsleuthai-backend
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    plan: free
+    rootDir: visionsleuthai.v3/frontend/backend
+    pythonVersion: "3.11.9"
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     envVars:
       - key: PORT
@@ -10,7 +13,9 @@ services:
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
-        value: "visionsleuth-ai-backend.onrender.com"
+        value: "masterthesis-zk81.onrender.com,visionsleuth-ai-backend.onrender.com"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       # Optional: GCP Configuration (uncomment if using GCP)
       # - key: GCP_BUCKET_NAME
       #   value: "your-bucket-name"

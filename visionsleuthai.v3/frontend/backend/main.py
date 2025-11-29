@@ -32,9 +32,11 @@ app = FastAPI(debug=DEBUG)
 
 # CORS configuration
 origins = [
+    "https://master-thesis-nu.vercel.app",  # Vercel frontend (current)
     "https://visionsleuthai-frontend.vercel.app",  # Vercel frontend
     "https://www.visionsleuth.com",
     "https://visionsleuth.com",
+    "https://api.visionsleuth.com",  # Custom domain backend
     "https://visionsleuth-ai-backend.onrender.com",  # Render backend
     "http://localhost:3000",
     "http://localhost:8000",
