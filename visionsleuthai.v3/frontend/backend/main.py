@@ -38,6 +38,7 @@ origins = [
     "https://visionsleuth.com",
     "https://api.visionsleuth.com",  # Custom domain backend
     "https://visionsleuth-ai-backend.onrender.com",  # Render backend
+    "https://masterthesis-zk81.onrender.com",  # Render backend (current)
     "http://localhost:3000",
     "http://localhost:8000",
 ]
@@ -45,9 +46,9 @@ origins = [
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins for now (can be restricted later)
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600

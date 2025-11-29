@@ -107,6 +107,19 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         if client_id in active_connections:
             await websocket.close(code=1001, reason=str(e))
 
+@router.options("/frame")
+async def live_analysis_frame_options():
+    """Handle CORS preflight requests"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
 @router.post("/frame")
 async def live_analysis_frame(request: Request):
     try:
@@ -116,7 +129,12 @@ async def live_analysis_frame(request: Request):
         if not image_b64:
             return JSONResponse(
                 status_code=400,
-                content={"detections": [], "error": "No image data received"}
+                content={"detections": [], "error": "No image data received"},
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                }
             )
 
         try:
@@ -129,14 +147,24 @@ async def live_analysis_frame(request: Request):
             if frame is None:
                 return JSONResponse(
                     status_code=400,
-                    content={"detections": [], "error": "Invalid image data"}
+                    content={"detections": [], "error": "Invalid image data"},
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "POST, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                    }
                 )
 
         except Exception as e:
             logger.warning("Image decode error: %s", str(e))
             return JSONResponse(
                 status_code=400,
-                content={"detections": [], "error": f"Image decode error: {str(e)}"}
+                content={"detections": [], "error": f"Image decode error: {str(e)}"},
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                }
             )
 
         # Process frame
@@ -152,19 +180,29 @@ async def live_analysis_frame(request: Request):
                 headers={
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
                 }
             )
         except Exception as e:
             logger.exception("Model error: %s", str(e))
             return JSONResponse(
                 status_code=500,
-                content={"detections": [], "error": f"Model error: {str(e)}"}
+                content={"detections": [], "error": f"Model error: {str(e)}"},
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                }
             )
 
     except Exception as e:
         logger.exception("General error: %s", str(e))
         return JSONResponse(
             status_code=500,
-            content={"detections": [], "error": f"General error: {str(e)}"}
+            content={"detections": [], "error": f"General error: {str(e)}"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            }
         ) 
