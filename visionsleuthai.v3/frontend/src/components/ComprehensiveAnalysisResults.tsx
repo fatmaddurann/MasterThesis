@@ -275,7 +275,7 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
                 </div>
                 <div>
                   <p className="text-green-700 font-medium">Avg Confidence</p>
-                  <p className="font-semibold text-green-900">{analysisData.model_performance?.average_confidence ? (analysisData.model_performance.average_confidence * 100).toFixed(1) : 'N/A'}%</p>
+                  <p className="font-semibold text-green-900">{avgConfidence !== undefined ? ((avgConfidence * 100).toFixed(1)) : 'N/A'}%</p>
                 </div>
                 <div>
                   <p className="text-green-700 font-medium">Evidence Quality</p>
