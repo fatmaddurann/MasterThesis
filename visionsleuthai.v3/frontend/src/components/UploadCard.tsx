@@ -109,8 +109,10 @@ const UploadCard = ({ onUploadComplete }: UploadCardProps): JSX.Element => {
           }
         } catch (error) {
           console.error(`Analysis check attempt ${retryCount + 1} failed:`, error);
-          console.error('Error details:', error.message);
-          console.error('Error stack:', error.stack);
+          if (error instanceof Error) {
+            console.error('Error details:', error.message);
+            console.error('Error stack:', error.stack);
+          }
           if (retryCount === maxRetries - 1) {
             throw new Error('Analysis timeout - please try again');
           }
