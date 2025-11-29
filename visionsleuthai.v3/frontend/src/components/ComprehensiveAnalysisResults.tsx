@@ -11,7 +11,7 @@ import {
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
-import html2pdf from 'html2pdf.js';
+// html2pdf will be imported dynamically to avoid SSR issues
 
 interface Detection {
   type: string;
@@ -98,16 +98,19 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
   const downloadPDF = async () => {
     if (!reportRef.current) return;
 
-    const element = reportRef.current;
-    const opt = {
-      margin: 1,
-      filename: `forensic_report_${analysisData?.id || 'analysis'}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
     try {
+      // Dynamic import to avoid SSR issues with html2pdf.js
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const element = reportRef.current;
+      const opt = {
+        margin: 1,
+        filename: `forensic_report_${analysisData?.id || 'analysis'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
       await html2pdf().set(opt).from(element).save();
     } catch (error) {
       console.error('PDF generation failed:', error);
