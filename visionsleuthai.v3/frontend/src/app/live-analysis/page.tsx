@@ -235,7 +235,7 @@ export default function LiveAnalysisPage() {
   useEffect(() => {
     if (!isAnalyzing || !cameraStarted) return;
 
-    const sendFrame = async () => {
+    const processAndSendFrame = async () => {
       if (!videoRef.current || !videoRef.current.srcObject) return;
 
       const canvas = document.createElement('canvas');
@@ -293,7 +293,7 @@ export default function LiveAnalysisPage() {
       }
     };
 
-    intervalRef.current = setInterval(sendFrame, 1000);
+    intervalRef.current = setInterval(processAndSendFrame, 1000);
     
     return () => {
       if (intervalRef.current) {
