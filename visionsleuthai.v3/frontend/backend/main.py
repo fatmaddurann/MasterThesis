@@ -30,34 +30,17 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(debug=DEBUG, docs_url=None, redoc_url=None)
 
-# Add CORS middleware FIRST - MUST be before any other middleware
-# This ensures CORS headers are added to ALL responses, including errors
+# Add CORS middleware FIRST - MUST be before any other middleware or routes
+# FastAPI CORS middleware automatically handles OPTIONS requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins (including Vercel preview URLs)
     allow_credentials=False,  # Must be False when using wildcard origins
-    allow_methods=["*"],  # Allow all methods
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],  # Explicit methods
     allow_headers=["*"],  # Allow all headers
     expose_headers=["*"],  # Expose all headers
     max_age=3600,
 )
-
-# Add global OPTIONS handler BEFORE routers to catch ALL OPTIONS requests
-@app.options("/{full_path:path}")
-async def options_handler(full_path: str, request: Request):
-    """Handle CORS preflight requests for ALL routes - must be before routers"""
-    origin = request.headers.get("origin", "*")
-    return JSONResponse(
-        content={},
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Max-Age": "3600",
-            "Access-Control-Allow-Credentials": "false",
-        }
-    )
 
 # File size limit middleware (1GB)
 @app.middleware("http")
@@ -86,19 +69,22 @@ async def add_process_time_header(request: Request, call_next):
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
-        # Force CORS headers on ALL responses (even if CORS middleware didn't add them)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "false"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+        # Ensure CORS headers are present on ALL responses
+        if "Access-Control-Allow-Origin" not in response.headers:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        if "Access-Control-Allow-Methods" not in response.headers:
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+        if "Access-Control-Allow-Headers" not in response.headers:
+            response.headers["Access-Control-Allow-Headers"] = "*"
         response.headers["Access-Control-Max-Age"] = "3600"
+        response.headers["Access-Control-Allow-Credentials"] = "false"
         return response
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
         # Ensure CORS headers are present even on error responses
         headers = {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Max-Age": "3600",
             "Access-Control-Allow-Credentials": "false",
