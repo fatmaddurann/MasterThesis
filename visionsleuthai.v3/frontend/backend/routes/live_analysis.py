@@ -107,19 +107,6 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         if client_id in active_connections:
             await websocket.close(code=1001, reason=str(e))
 
-@router.options("/frame")
-async def live_analysis_frame_options():
-    """Handle CORS preflight requests"""
-    return JSONResponse(
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
-
 @router.post("/frame")
 async def live_analysis_frame(request: Request):
     try:
