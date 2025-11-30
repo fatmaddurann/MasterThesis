@@ -30,31 +30,34 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(debug=DEBUG, docs_url=None, redoc_url=None)
 
-# CORS configuration
-origins = [
-    "https://master-thesis-nu.vercel.app",  # Vercel frontend (current)
-    "https://visionsleuthai-frontend.vercel.app",  # Vercel frontend
-    "https://www.visionsleuth.com",
-    "https://visionsleuth.com",
-    "https://api.visionsleuth.com",  # Custom domain backend
-    "https://visionsleuth-ai-backend.onrender.com",  # Render backend
-    "https://masterthesis-zk81.onrender.com",  # Render backend (current)
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
-
-# Add CORS middleware - MUST be added BEFORE other middleware
-# Allow all Vercel preview and production deployments
+# Add CORS middleware FIRST - MUST be before any other middleware
+# This ensures CORS headers are added to ALL responses, including errors
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins (including Vercel preview URLs)
     allow_credentials=False,  # Must be False when using wildcard origins
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers
     max_age=3600,
-    allow_origin_regex=".*"  # Also allow regex patterns
 )
+
+# Add global OPTIONS handler BEFORE routers to catch ALL OPTIONS requests
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str, request: Request):
+    """Handle CORS preflight requests for ALL routes - must be before routers"""
+    origin = request.headers.get("origin", "*")
+    return JSONResponse(
+        content={},
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+            "Access-Control-Allow-Credentials": "false",
+        }
+    )
 
 # File size limit middleware (1GB)
 @app.middleware("http")
@@ -78,24 +81,27 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
-# Error handling middleware with detailed logging
+# Error handling middleware with detailed logging and CORS headers
 @app.middleware("http")
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
-        # Ensure CORS headers are present on all responses
+        # Force CORS headers on ALL responses (even if CORS middleware didn't add them)
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Credentials"] = "false"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Max-Age"] = "3600"
         return response
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
-        origin = request.headers.get("origin")
+        # Ensure CORS headers are present even on error responses
         headers = {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+            "Access-Control-Allow-Credentials": "false",
         }
         return JSONResponse(
             status_code=500,
@@ -107,20 +113,6 @@ async def catch_exceptions_middleware(request: Request, call_next):
 app.include_router(video_analysis.router, prefix="/api")
 app.include_router(live_analysis.router, prefix="/api/live")
 app.include_router(forensic_report.router, prefix="/api")
-
-# Add global OPTIONS handler AFTER routers to catch any unmatched OPTIONS requests
-@app.options("/{full_path:path}")
-async def options_handler(full_path: str, request: Request):
-    """Handle CORS preflight requests for all routes"""
-    return JSONResponse(
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
 
 # Add video upload endpoint
 @app.post("/api/video/upload")
