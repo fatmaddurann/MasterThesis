@@ -10,6 +10,7 @@ import ForensicDashboard from '@/components/forensic/ForensicDashboard';
 import { useForensicAnalysis } from '@/components/forensic/useForensicAnalysis';
 import { LiveAnalysisResults } from '@/components/forensic/LiveAnalysisResults';
 import { ForensicAnalysisResults, DetectionWithTimestamp } from '@/components/forensic/ForensicAnalysisResults';
+import { sendFrame } from '@/utils/api';
 
 // Tip tanımları
 interface Detection {
@@ -249,29 +250,8 @@ export default function LiveAnalysisPage() {
         // Compress the image before sending
         const imageData = canvas.toDataURL('image/jpeg', 0.7);
         
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-        const response = await fetch(`${API_URL.replace(/\/+$/, '')}/api/live/frame`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({ image: imageData }),
-          signal: controller.signal,
-          mode: 'cors',
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || response.statusText}`);
-        }
-
-        const data = await response.json();
+        // Use the sendFrame function from api.ts which handles API URL correctly
+        const data = await sendFrame(imageData);
         const now = new Date().toLocaleString();
         
         // Tespitleri işle ve risk değerlendirmesi yap

@@ -101,19 +101,17 @@ declare global {
 }
 
 const getApiBaseUrl = (): string => {
-  const defaultUrl = 'http://localhost:8000';
-  if (typeof window !== 'undefined') {
-    const envUrl = (window.env?.NEXT_PUBLIC_API_URL || defaultUrl);
-    return envUrl.replace(/\/+$/, '');
-  }
-  return defaultUrl;
+  // Next.js environment variables are available at build time
+  const defaultUrl = 'https://masterthesis-zk81.onrender.com';
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || defaultUrl;
+  return envUrl.replace(/\/+$/, '');
 };
 
 const getWsBase = (): string => {
   // Prefer explicit WS env, else derive from API base
-  const fromEnv = (typeof window !== 'undefined' ? window.env?.NEXT_PUBLIC_WS_URL : process.env.NEXT_PUBLIC_WS_URL) || '';
+  const fromEnv = process.env.NEXT_PUBLIC_WS_URL || '';
   if (fromEnv) return fromEnv.replace(/\/+$/, '');
-  const apiUrl = (typeof window !== 'undefined' ? window.env?.NEXT_PUBLIC_API_URL : process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:8000';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk81.onrender.com';
   // Convert http(s) -> ws(s)
   return apiUrl.replace(/\/+$/, '').replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
 };
