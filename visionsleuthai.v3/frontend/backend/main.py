@@ -44,9 +44,10 @@ origins = [
 ]
 
 # Add CORS middleware - MUST be added BEFORE other middleware
+# Allow all Vercel preview and production deployments
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],  # Allow all origins (including Vercel preview URLs)
     allow_credentials=False,  # Must be False when using wildcard origins
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -81,20 +82,26 @@ async def add_process_time_header(request: Request, call_next):
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
-        # Ensure CORS headers are present
-        if "Access-Control-Allow-Origin" not in response.headers:
+        # Ensure CORS headers are present on all responses
+        origin = request.headers.get("origin")
+        if origin:
             response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "false"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
         return response
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
+        origin = request.headers.get("origin")
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+        }
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error", "error": str(e) if DEBUG else None},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-                "Access-Control-Allow-Headers": "*",
-            }
+            headers=headers
         )
 
 # Include routers
