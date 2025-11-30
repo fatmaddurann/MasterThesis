@@ -66,7 +66,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
-    max_age=3600
+    max_age=3600,
+    allow_origin_regex=".*"  # Also allow regex patterns
 )
 
 # File size limit middleware (1GB)
