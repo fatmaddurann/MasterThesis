@@ -30,20 +30,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(debug=DEBUG, docs_url=None, redoc_url=None)
 
-# Add global OPTIONS handler BEFORE CORS middleware to handle preflight
-@app.options("/{full_path:path}")
-async def options_handler(full_path: str, request: Request):
-    """Handle CORS preflight requests for all routes"""
-    return JSONResponse(
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
-
 # CORS configuration
 origins = [
     "https://master-thesis-nu.vercel.app",  # Vercel frontend (current)
@@ -121,6 +107,20 @@ async def catch_exceptions_middleware(request: Request, call_next):
 app.include_router(video_analysis.router, prefix="/api")
 app.include_router(live_analysis.router, prefix="/api/live")
 app.include_router(forensic_report.router, prefix="/api")
+
+# Add global OPTIONS handler AFTER routers to catch any unmatched OPTIONS requests
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str, request: Request):
+    """Handle CORS preflight requests for all routes"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
 
 # Add video upload endpoint
 @app.post("/api/video/upload")
