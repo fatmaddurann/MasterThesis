@@ -210,14 +210,15 @@ export async function startLiveAnalysis(): Promise<void> {
 /**
  * Send a frame to the backend for live analysis
  * 
- * ARCHITECTURE (Proxy Route - Seçenek B):
- * - Browser makes request to: /api/live/frame (same-origin, no CORS needed)
- * - Next.js server forwards to: ${NEXT_PUBLIC_API_URL}/api/live/frame (server-to-server)
- * - This eliminates CORS issues since browser only talks to same-origin Next.js server
+ * ARCHITECTURE (Direct Backend Call):
+ * - Browser makes request directly to: ${NEXT_PUBLIC_API_URL}/api/live/frame
+ * - Backend CORS is configured to allow requests from Vercel frontend
+ * - Simpler architecture: Browser → Render Backend (one hop)
  * 
- * CHANGED: Switched to proxy route to avoid CORS issues
- * - Browser → Next.js API Route (same-origin, no CORS)
- * - Next.js API Route → Render Backend (server-to-server, no CORS needed)
+ * BACKEND CORS CONFIGURATION:
+ * - Backend allows origin: https://master-thesis-nu.vercel.app
+ * - Backend allows methods: GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD
+ * - Backend allows headers: Content-Type, Authorization, Accept, Origin, etc.
  */
 export const sendFrame = async (imageData: string) => {
   try {
@@ -226,15 +227,16 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // Use Next.js proxy route (same-origin, no CORS issues)
-    // The proxy route at /api/live/frame will forward to Render backend
-    const proxyUrl = '/api/live/frame';
+    // Get backend URL - use hardcoded URL to ensure it always works
+    // Backend CORS is configured to allow requests from Vercel frontend
+    const backendUrl = 'https://masterthesis-zk81.onrender.com';
+    const backendUrlFull = `${backendUrl}/api/live/frame`;
 
     // Debug log (will appear in browser console)
-    console.log('[sendFrame] Calling proxy route:', proxyUrl);
+    console.log('[sendFrame] Calling backend directly:', backendUrlFull);
 
-    // Call Next.js proxy route (same-origin, no CORS)
-    const response = await fetch(proxyUrl, {
+    // Call Render backend directly (CORS configured on backend)
+    const response = await fetch(backendUrlFull, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -258,13 +260,13 @@ export const sendFrame = async (imageData: string) => {
       
       // Provide user-friendly error messages based on status code
       if (response.status === 404) {
-        throw new Error('API endpoint not found. The proxy route may not be deployed.');
-      } else if (response.status === 500) {
-        throw new Error(errorData.error || 'Backend server error. Please try again later.');
-      } else if (response.status === 504) {
-        throw new Error('Request timeout. Backend may be slow or unavailable.');
+        throw new Error('API endpoint not found. The backend route may not be deployed.');
+      } else if (response.status >= 500) {
+        throw new Error(`Backend server error: ${errorData.error || errorData.detail || 'Please try again later.'}`);
+      } else if (response.status >= 400) {
+        throw new Error(`Request error: ${errorData.error || errorData.detail || 'Invalid request.'}`);
       } else {
-        throw new Error(errorData.error || errorData.detail || `Failed to process frame: ${response.status}`);
+        throw new Error(errorData.error || errorData.detail || 'Failed to process frame');
       }
     }
 
@@ -284,6 +286,10 @@ export const sendFrame = async (imageData: string) => {
       // Check for network errors
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         throw new Error('Network error. Please check your internet connection.');
+      }
+      // Check for CORS errors
+      if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
+        throw new Error('CORS error. Backend may not be configured correctly.');
       }
       // Re-throw with original message
       throw error;

@@ -128,6 +128,20 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * Handle GET requests - for testing/debugging
+ */
+export async function GET(request: NextRequest) {
+  return NextResponse.json(
+    { 
+      message: 'Proxy route is working',
+      backendUrl: process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk81.onrender.com',
+      timestamp: new Date().toISOString(),
+    },
+    { status: 200 }
+  );
+}
+
+/**
  * Handle OPTIONS preflight requests
  * Not strictly necessary for same-origin requests, but included for completeness
  */
