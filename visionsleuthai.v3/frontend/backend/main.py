@@ -39,10 +39,12 @@ origins = [
 ]
 
 # CORS middleware configuration - MUST be added before routes
+# FIX: Changed allow_credentials to False when using specific origins to avoid CORS issues
+# If credentials are needed, use allow_origins with exact match (no trailing slashes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Specific origins (required when allow_credentials=True)
-    allow_credentials=True,  # Allow credentials (cookies, auth headers)
+    allow_origins=origins,  # Specific origins
+    allow_credentials=False,  # Set to False to avoid CORS issues with specific origins
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],  # All methods including OPTIONS
     allow_headers=[
         "Content-Type",

@@ -31,19 +31,19 @@ ALLOWED_ORIGINS = [
 ]
 
 def get_cors_headers(origin: str = None) -> dict:
-    """Get CORS headers for response"""
+    """Get CORS headers for response (backup if middleware doesn't work)"""
     headers = {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
         "Access-Control-Max-Age": "3600",
     }
+    # FIX: Removed allow_credentials to match main.py middleware setting
+    # When allow_credentials=False in middleware, we shouldn't set it in manual headers
     if origin and origin in ALLOWED_ORIGINS:
         headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Credentials"] = "true"
     elif not origin:
         # If no origin header, allow the production origin as fallback
         headers["Access-Control-Allow-Origin"] = "https://master-thesis-nu.vercel.app"
-        headers["Access-Control-Allow-Credentials"] = "true"
     return headers
 
 # Initialize model and processor once (lazy load inside model) - LIVE ANALYSIS MODE
