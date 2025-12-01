@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
 from typing import Dict, List
 import asyncio
 import cv2
@@ -7,8 +7,7 @@ from datetime import datetime
 from models.crime_detection_model import CrimeDetectionModel
 from models.video_processor import VideoProcessor
 import base64
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import logging
 import os
 from utils.metrics import frames_processed, frames_dropped, start_timer, observe_latency_ms
@@ -23,6 +22,29 @@ client_last_ts_ms: Dict[str, int] = {}
 
 # Minimum interval between processed frames per client (ms)
 MIN_INTERVAL_MS = int(os.getenv("LIVE_MIN_INTERVAL_MS", "120"))
+
+# Allowed origins for CORS
+ALLOWED_ORIGINS = [
+    "https://master-thesis-nu.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+
+def get_cors_headers(origin: str = None) -> dict:
+    """Get CORS headers for response"""
+    headers = {
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
+        "Access-Control-Max-Age": "3600",
+    }
+    if origin and origin in ALLOWED_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    elif not origin:
+        # If no origin header, allow the production origin as fallback
+        headers["Access-Control-Allow-Origin"] = "https://master-thesis-nu.vercel.app"
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return headers
 
 # Initialize model and processor once (lazy load inside model) - LIVE ANALYSIS MODE
 model = CrimeDetectionModel(mode="live_analysis")
@@ -108,17 +130,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             await websocket.close(code=1001, reason=str(e))
 
 @router.options("/frame")
-async def options_frame():
-    """Handle CORS preflight for /frame endpoint"""
-    return JSONResponse(
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
+async def options_frame(request: Request):
+    """Handle CORS preflight requests for /frame endpoint"""
+    origin = request.headers.get("origin")
+    headers = get_cors_headers(origin)
+    return Response(status_code=200, headers=headers)
 
 @router.post("/frame")
 async def live_analysis_frame(request: Request):
@@ -126,15 +142,14 @@ async def live_analysis_frame(request: Request):
         # Parse request body
         data = await request.json()
         image_b64 = data.get("image")
+        origin = request.headers.get("origin")
+        cors_headers = get_cors_headers(origin)
+        
         if not image_b64:
             return JSONResponse(
                 status_code=400,
                 content={"detections": [], "error": "No image data received"},
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                }
+                headers=cors_headers
             )
 
         try:
@@ -148,11 +163,7 @@ async def live_analysis_frame(request: Request):
                 return JSONResponse(
                     status_code=400,
                     content={"detections": [], "error": "Invalid image data"},
-                    headers={
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Methods": "POST, OPTIONS",
-                        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                    }
+                    headers=cors_headers
                 )
 
         except Exception as e:
@@ -160,11 +171,7 @@ async def live_analysis_frame(request: Request):
             return JSONResponse(
                 status_code=400,
                 content={"detections": [], "error": f"Image decode error: {str(e)}"},
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                }
+                headers=cors_headers
             )
 
         # Process frame
@@ -177,32 +184,22 @@ async def live_analysis_frame(request: Request):
                     "suspicious_interactions": results.get("suspicious_interactions", []),
                     "timestamp": datetime.utcnow().isoformat()
                 },
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                }
+                headers=cors_headers
             )
         except Exception as e:
             logger.exception("Model error: %s", str(e))
             return JSONResponse(
                 status_code=500,
                 content={"detections": [], "error": f"Model error: {str(e)}"},
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                }
+                headers=cors_headers
             )
 
     except Exception as e:
         logger.exception("General error: %s", str(e))
+        origin = request.headers.get("origin") if 'request' in locals() else None
+        cors_headers = get_cors_headers(origin)
         return JSONResponse(
             status_code=500,
             content={"detections": [], "error": f"General error: {str(e)}"},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            }
+            headers=cors_headers
         ) 
