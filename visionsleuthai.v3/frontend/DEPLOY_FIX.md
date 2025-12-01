@@ -90,3 +90,4 @@ git push origin main
 - Backend URL hardcode edildi (environment variable sorunlarından kaçınmak için)
 - Debug log eklendi (production'da console'da görünecek)
 
+

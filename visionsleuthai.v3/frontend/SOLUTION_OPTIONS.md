@@ -66,3 +66,4 @@ Proxy route zaten hazır ve build'de görünüyor. Sadece Vercel'de deploy edilm
 ### Alternatif: Seçenek A'ya Geçiş
 Eğer proxy route çalışmazsa, Seçenek A'ya geçebiliriz (frontend'i doğrudan backend'e yönlendir).
 
+

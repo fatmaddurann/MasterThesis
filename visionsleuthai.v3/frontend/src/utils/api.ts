@@ -210,14 +210,14 @@ export async function startLiveAnalysis(): Promise<void> {
 /**
  * Send a frame to the backend for live analysis
  * 
- * ARCHITECTURE (Seçenek A - Direct Backend Call):
- * - Calls Render backend directly: ${NEXT_PUBLIC_API_URL}/api/live/frame
- * - Backend CORS is configured to allow requests from Vercel frontend
- * - Simpler architecture: Browser → Render Backend (one hop)
+ * ARCHITECTURE (Proxy Route - Seçenek B):
+ * - Browser makes request to: /api/live/frame (same-origin, no CORS needed)
+ * - Next.js server forwards to: ${NEXT_PUBLIC_API_URL}/api/live/frame (server-to-server)
+ * - This eliminates CORS issues since browser only talks to same-origin Next.js server
  * 
- * CHANGED: Switched from proxy route to direct backend call
- * - Backend CORS already configured in backend/main.py
- * - Allows origin: https://master-thesis-nu.vercel.app
+ * CHANGED: Switched to proxy route to avoid CORS issues
+ * - Browser → Next.js API Route (same-origin, no CORS)
+ * - Next.js API Route → Render Backend (server-to-server, no CORS needed)
  */
 export const sendFrame = async (imageData: string) => {
   try {
@@ -226,18 +226,15 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // Get backend URL from environment variable
-    // In production (Vercel), NEXT_PUBLIC_API_URL should be set to: https://masterthesis-zk81.onrender.com
-    // FIX: Hardcode backend URL to ensure it always points to Render backend
-    // This prevents issues with environment variables or build cache
-    const backendUrl = 'https://masterthesis-zk81.onrender.com';
-    const backendUrlFull = `${backendUrl}/api/live/frame`;
+    // Use Next.js proxy route (same-origin, no CORS issues)
+    // The proxy route at /api/live/frame will forward to Render backend
+    const proxyUrl = '/api/live/frame';
 
     // Debug log (will appear in browser console)
-    console.log('[sendFrame] Calling backend:', backendUrlFull);
+    console.log('[sendFrame] Calling proxy route:', proxyUrl);
 
-    // Call Render backend directly (CORS configured on backend)
-    const response = await fetch(backendUrlFull, {
+    // Call Next.js proxy route (same-origin, no CORS)
+    const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -261,7 +258,7 @@ export const sendFrame = async (imageData: string) => {
       
       // Provide user-friendly error messages based on status code
       if (response.status === 404) {
-        throw new Error('API endpoint not found. The backend route may not be deployed.');
+        throw new Error('API endpoint not found. The proxy route may not be deployed.');
       } else if (response.status === 500) {
         throw new Error(errorData.error || 'Backend server error. Please try again later.');
       } else if (response.status === 504) {
@@ -283,10 +280,6 @@ export const sendFrame = async (imageData: string) => {
       // Check for timeout/abort errors
       if (error.name === 'AbortError' || error.message.includes('timeout')) {
         throw new Error('Request timeout. Backend may be slow or unavailable.');
-      }
-      // Check for CORS errors (should not happen if backend CORS is configured correctly)
-      if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
-        throw new Error('CORS error: Backend may not be configured to allow requests from this origin. Please check backend CORS settings.');
       }
       // Check for network errors
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
