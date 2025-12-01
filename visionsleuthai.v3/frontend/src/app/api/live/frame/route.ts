@@ -2,52 +2,125 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * Next.js API proxy route for /api/live/frame
- * This eliminates CORS issues by making the request server-side
  * 
- * Browser -> /api/live/frame (same-origin, no CORS)
- * Next.js Server -> https://masterthesis-zk81.onrender.com/api/live/frame (server-to-server, no CORS)
+ * ARCHITECTURE:
+ * - Browser makes request to: /api/live/frame (same-origin, no CORS needed)
+ * - Next.js server forwards to: ${NEXT_PUBLIC_API_URL}/api/live/frame (server-to-server)
+ * - This eliminates CORS issues since browser only talks to same-origin Next.js server
+ * 
+ * ENVIRONMENT VARIABLE:
+ * - NEXT_PUBLIC_API_URL should be set to: https://masterthesis-zk81.onrender.com
+ * - Falls back to hardcoded URL if env var is not set (for development)
  */
 export async function POST(request: NextRequest) {
   try {
+    // Get backend URL from environment variable
+    // In production (Vercel), this should be set in environment variables
+    // In development, it can be set in .env.local
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk81.onrender.com';
     
     if (!backendUrl) {
+      console.error('[API Route] Backend URL not configured');
       return NextResponse.json(
-        { error: 'Backend URL not configured' },
+        { 
+          detections: [], 
+          error: 'Backend URL not configured. Please set NEXT_PUBLIC_API_URL environment variable.' 
+        },
         { status: 500 }
       );
     }
 
-    // Get the request body
-    const body = await request.json();
+    // Parse request body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('[API Route] Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { detections: [], error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
 
-    // Forward the request to the backend
-    const backendRes = await fetch(`${backendUrl}/api/live/frame`, {
+    // Validate that image data is present
+    if (!body || !body.image) {
+      return NextResponse.json(
+        { detections: [], error: 'Missing image data in request body' },
+        { status: 400 }
+      );
+    }
+
+    // Forward the request to the Render backend
+    const backendUrlFull = `${backendUrl.replace(/\/+$/, '')}/api/live/frame`;
+    
+    console.log(`[API Route] Forwarding request to: ${backendUrlFull}`);
+    
+    const backendRes = await fetch(backendUrlFull, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
+    // Handle non-OK responses
     if (!backendRes.ok) {
-      const errorData = await backendRes.json().catch(() => ({
-        error: `Backend error: ${backendRes.status} ${backendRes.statusText}`,
-      }));
+      let errorData;
+      try {
+        errorData = await backendRes.json();
+      } catch {
+        errorData = {
+          error: `Backend returned ${backendRes.status} ${backendRes.statusText}`,
+        };
+      }
+      
+      console.error(`[API Route] Backend error: ${backendRes.status}`, errorData);
+      
       return NextResponse.json(
-        errorData,
+        {
+          detections: [],
+          error: errorData.error || errorData.detail || `Backend error: ${backendRes.status}`,
+        },
         { status: backendRes.status }
       );
     }
 
-    const result = await backendRes.json();
-    return NextResponse.json(result);
+    // Parse and return successful response
+    try {
+      const result = await backendRes.json();
+      return NextResponse.json(result);
+    } catch (parseError) {
+      console.error('[API Route] Failed to parse backend response:', parseError);
+      return NextResponse.json(
+        { detections: [], error: 'Failed to parse backend response' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error('Live frame processing error:', error);
+    // Handle network errors, timeouts, etc.
+    console.error('[API Route] Request error:', error);
+    
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Internal server error';
+    
+    // Check if it's a timeout error
+    if (errorMessage.includes('timeout') || errorMessage.includes('aborted')) {
+      return NextResponse.json(
+        { 
+          detections: [], 
+          error: 'Request timeout. Backend may be slow or unavailable.' 
+        },
+        { status: 504 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         detections: [], 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+        error: `Proxy error: ${errorMessage}` 
       },
       { status: 500 }
     );
@@ -56,8 +129,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Handle OPTIONS preflight requests
- * This is not strictly necessary when using Next.js proxy (same-origin),
- * but it's good practice to support it
+ * Not strictly necessary for same-origin requests, but included for completeness
  */
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {

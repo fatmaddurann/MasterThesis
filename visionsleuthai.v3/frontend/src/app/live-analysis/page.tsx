@@ -191,6 +191,9 @@ export default function LiveAnalysisPage() {
   const [currentDetections, setCurrentDetections] = useState<Detection[]>([]);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Track consecutive errors to stop infinite retry loops
+  const consecutiveErrorsRef = useRef<number>(0);
+  const MAX_CONSECUTIVE_ERRORS = 3; // Stop after 3 consecutive errors
 
   // Kamera başlat
   const startCamera = async () => {
@@ -232,11 +235,28 @@ export default function LiveAnalysisPage() {
   };
 
   // Her 1000ms'de bir frame'i backend'e POST et
+  // CHANGED: Added error handling to stop infinite retry loops
   useEffect(() => {
-    if (!isAnalyzing || !cameraStarted) return;
+    if (!isAnalyzing || !cameraStarted) {
+      // Reset error counter when analysis stops
+      consecutiveErrorsRef.current = 0;
+      return;
+    }
 
     const processAndSendFrame = async () => {
       if (!videoRef.current || !videoRef.current.srcObject) return;
+
+      // Stop if we've hit max consecutive errors
+      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+        console.error(`[Live Analysis] Stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`);
+        setIsAnalyzing(false);
+        setError(`Analysis stopped: Too many consecutive errors. Please check your connection and try again.`);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        return;
+      }
 
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
@@ -250,9 +270,13 @@ export default function LiveAnalysisPage() {
         // Compress the image before sending
         const imageData = canvas.toDataURL('image/jpeg', 0.7);
         
-        // Use the sendFrame function from api.ts which handles API URL correctly
+        // Use the sendFrame function from api.ts which calls /api/live/frame
+        // This goes through Next.js proxy route -> Render backend
         const data = await sendFrame(imageData);
         const now = new Date().toLocaleString();
+        
+        // Reset error counter on success
+        consecutiveErrorsRef.current = 0;
         
         // Tespitleri işle ve risk değerlendirmesi yap
         const detections = (data.detections || []).map((det: any) => ({
@@ -275,7 +299,7 @@ export default function LiveAnalysisPage() {
 
         setFrameResults(prev => [...detections, ...prev].slice(0, 100));
         setCurrentDetections(detections); // Güncel tespitleri state'e kaydet
-        setError(null);
+        setError(null); // Clear error on success
 
         // Tespitleri video üzerine çiz
         if (canvasRef.current && videoRef.current && videoRef.current.videoWidth > 0) {
@@ -288,18 +312,39 @@ export default function LiveAnalysisPage() {
         }
 
       } catch (e) {
-        console.error('Frame processing error:', e);
-        setError(e instanceof Error ? e.message : 'Frame işleme hatası');
+        // Increment consecutive error counter
+        consecutiveErrorsRef.current += 1;
+        
+        const errorMessage = e instanceof Error ? e.message : 'Frame işleme hatası';
+        console.error(`[Live Analysis] Frame processing error (${consecutiveErrorsRef.current}/${MAX_CONSECUTIVE_ERRORS}):`, e);
+        
+        // Set user-friendly error message
+        if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+          setError('API endpoint not found. Please check if the backend is deployed correctly.');
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('Failed to fetch')) {
+          setError(`Connection error (${consecutiveErrorsRef.current}/${MAX_CONSECUTIVE_ERRORS}). Backend may be unavailable.`);
+        } else {
+          setError(`${errorMessage} (${consecutiveErrorsRef.current}/${MAX_CONSECUTIVE_ERRORS})`);
+        }
+        
+        // If we're about to hit max errors, warn the user
+        if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS - 1) {
+          console.warn(`[Live Analysis] One more error will stop the analysis`);
+        }
       }
     };
 
+    // Start interval
     intervalRef.current = setInterval(processAndSendFrame, 1000);
     
+    // Cleanup function
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      // Reset error counter on cleanup
+      consecutiveErrorsRef.current = 0;
     };
   }, [isAnalyzing, cameraStarted]);
 

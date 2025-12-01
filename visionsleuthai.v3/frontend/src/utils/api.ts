@@ -207,28 +207,96 @@ export async function startLiveAnalysis(): Promise<void> {
   }
 }
 
+/**
+ * Send a frame to the backend for live analysis
+ * 
+ * ARCHITECTURE (Seçenek A - Direct Backend Call):
+ * - Calls Render backend directly: ${NEXT_PUBLIC_API_URL}/api/live/frame
+ * - Backend CORS is configured to allow requests from Vercel frontend
+ * - Simpler architecture: Browser → Render Backend (one hop)
+ * 
+ * CHANGED: Switched from proxy route to direct backend call
+ * - Backend CORS already configured in backend/main.py
+ * - Allows origin: https://master-thesis-nu.vercel.app
+ */
 export const sendFrame = async (imageData: string) => {
   try {
-    // Use Next.js API proxy route instead of direct backend call
-    // This eliminates CORS issues since the browser makes a same-origin request
-    // to Next.js, and Next.js forwards it server-side to Render backend
-    const response = await fetch('/api/live/frame', {
+    // Validate input
+    if (!imageData || typeof imageData !== 'string') {
+      throw new Error('Invalid image data provided');
+    }
+
+    // Get backend URL from environment variable
+    // In production (Vercel), NEXT_PUBLIC_API_URL should be set to: https://masterthesis-zk81.onrender.com
+    // FIX: Hardcode backend URL to ensure it always points to Render backend
+    // This prevents issues with environment variables or build cache
+    const backendUrl = 'https://masterthesis-zk81.onrender.com';
+    const backendUrlFull = `${backendUrl}/api/live/frame`;
+
+    // Debug log (will appear in browser console)
+    console.log('[sendFrame] Calling backend:', backendUrlFull);
+
+    // Call Render backend directly (CORS configured on backend)
+    const response = await fetch(backendUrlFull, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ image: imageData }),
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
+    // Handle non-OK responses with detailed error messages
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || error.detail || 'Failed to process frame');
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        // If response is not JSON, create error from status
+        errorData = {
+          error: `Server returned ${response.status} ${response.statusText}`,
+        };
+      }
+      
+      // Provide user-friendly error messages based on status code
+      if (response.status === 404) {
+        throw new Error('API endpoint not found. The backend route may not be deployed.');
+      } else if (response.status === 500) {
+        throw new Error(errorData.error || 'Backend server error. Please try again later.');
+      } else if (response.status === 504) {
+        throw new Error('Request timeout. Backend may be slow or unavailable.');
+      } else {
+        throw new Error(errorData.error || errorData.detail || `Failed to process frame: ${response.status}`);
+      }
     }
 
-    return await response.json();
+    // Parse and return successful response
+    try {
+      return await response.json();
+    } catch (parseError) {
+      throw new Error('Failed to parse backend response');
+    }
   } catch (error) {
-    console.error('Frame processing error:', error);
-    throw error;
+    // Re-throw with better error messages
+    if (error instanceof Error) {
+      // Check for timeout/abort errors
+      if (error.name === 'AbortError' || error.message.includes('timeout')) {
+        throw new Error('Request timeout. Backend may be slow or unavailable.');
+      }
+      // Check for CORS errors (should not happen if backend CORS is configured correctly)
+      if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
+        throw new Error('CORS error: Backend may not be configured to allow requests from this origin. Please check backend CORS settings.');
+      }
+      // Check for network errors
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
+      // Re-throw with original message
+      throw error;
+    }
+    // Unknown error
+    throw new Error('Unknown error occurred while processing frame');
   }
 };
 
