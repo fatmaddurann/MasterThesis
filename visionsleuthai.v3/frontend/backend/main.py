@@ -38,11 +38,12 @@ origins = [
     "http://localhost:3001",  # Alternative local port
 ]
 
+# CORS middleware configuration - MUST be added before routes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Specific origins for better security
+    allow_origins=origins,  # Specific origins (required when allow_credentials=True)
     allow_credentials=True,  # Allow credentials (cookies, auth headers)
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],  # Explicit methods
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],  # All methods including OPTIONS
     allow_headers=[
         "Content-Type",
         "Authorization",
@@ -51,9 +52,9 @@ app.add_middleware(
         "X-Requested-With",
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
-    ],  # Explicit headers (wildcard doesn't work reliably)
-    expose_headers=["*"],  # Expose all headers
-    max_age=3600,
+    ],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight for 1 hour
 )
 
 # File size limit middleware (1GB)

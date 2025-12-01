@@ -209,7 +209,10 @@ export async function startLiveAnalysis(): Promise<void> {
 
 export const sendFrame = async (imageData: string) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/live/frame`, {
+    // Use Next.js API proxy route instead of direct backend call
+    // This eliminates CORS issues since the browser makes a same-origin request
+    // to Next.js, and Next.js forwards it server-side to Render backend
+    const response = await fetch('/api/live/frame', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -219,7 +222,7 @@ export const sendFrame = async (imageData: string) => {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Failed to process frame');
+      throw new Error(error.error || error.detail || 'Failed to process frame');
     }
 
     return await response.json();
