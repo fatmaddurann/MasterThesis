@@ -5,65 +5,82 @@ import { NextRequest, NextResponse } from 'next/server';
  * 
  * ARCHITECTURE:
  * - Browser makes request to: /api/live/frame (same-origin, no CORS needed)
- * - Next.js server forwards to: ${NEXT_PUBLIC_API_URL}/api/live/frame (server-to-server)
+ * - Next.js server forwards to: https://masterthesis-zk81.onrender.com/api/live/frame (server-to-server)
  * - This eliminates CORS issues since browser only talks to same-origin Next.js server
  * 
- * ENVIRONMENT VARIABLE:
- * - NEXT_PUBLIC_API_URL should be set to: https://masterthesis-zk81.onrender.com
- * - Falls back to hardcoded URL if env var is not set (for development)
+ * SUPPORTS:
+ * - JSON requests (Content-Type: application/json)
+ * - Multipart/form-data requests
  */
+
+const BACKEND_URL = 'https://masterthesis-zk81.onrender.com/api/live/frame';
+
 export async function POST(request: NextRequest) {
   try {
-    // Get backend URL from environment variable
-    // In production (Vercel), this should be set in environment variables
-    // In development, it can be set in .env.local
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk81.onrender.com';
+    const contentType = request.headers.get('content-type') || '';
     
-    if (!backendUrl) {
-      console.error('[API Route] Backend URL not configured');
-      return NextResponse.json(
-        { 
-          detections: [], 
-          error: 'Backend URL not configured. Please set NEXT_PUBLIC_API_URL environment variable.' 
-        },
-        { status: 500 }
-      );
-    }
-
-    // Parse request body
-    let body;
-    try {
-      body = await request.json();
-    } catch (parseError) {
-      console.error('[API Route] Failed to parse request body:', parseError);
-      return NextResponse.json(
-        { detections: [], error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-
-    // Validate that image data is present
-    if (!body || !body.image) {
-      return NextResponse.json(
-        { detections: [], error: 'Missing image data in request body' },
-        { status: 400 }
-      );
-    }
-
-    // Forward the request to the Render backend
-    const backendUrlFull = `${backendUrl.replace(/\/+$/, '')}/api/live/frame`;
-    
-    console.log(`[API Route] Forwarding request to: ${backendUrlFull}`);
-    
-    const backendRes = await fetch(backendUrlFull, {
+    // Prepare backend request
+    let backendRequestInit: RequestInit = {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(30000), // 30 second timeout
-    });
+      headers: {},
+    };
+
+    // Handle JSON requests
+    if (contentType.includes('application/json')) {
+      try {
+        const body = await request.json();
+        backendRequestInit.headers = {
+          'Content-Type': 'application/json',
+        };
+        backendRequestInit.body = JSON.stringify(body);
+      } catch (parseError) {
+        console.error('[API Route] Failed to parse JSON body:', parseError);
+        return NextResponse.json(
+          { detections: [], error: 'Invalid JSON request body' },
+          { status: 400 }
+        );
+      }
+    }
+    // Handle multipart/form-data requests
+    else if (contentType.includes('multipart/form-data')) {
+      try {
+        const formData = await request.formData();
+        // When using FormData with fetch, don't set Content-Type header
+        // Browser/fetch will automatically set it with boundary
+        backendRequestInit.body = formData;
+      } catch (parseError) {
+        console.error('[API Route] Failed to parse form data:', parseError);
+        return NextResponse.json(
+          { detections: [], error: 'Invalid form data' },
+          { status: 400 }
+        );
+      }
+    }
+    // Handle other content types (fallback to JSON)
+    else {
+      try {
+        const body = await request.json();
+        backendRequestInit.headers = {
+          'Content-Type': 'application/json',
+        };
+        backendRequestInit.body = JSON.stringify(body);
+      } catch {
+        // If JSON parsing fails, try to get raw body
+        const text = await request.text();
+        backendRequestInit.headers = {
+          'Content-Type': 'application/json',
+        };
+        backendRequestInit.body = text;
+      }
+    }
+
+    // Add timeout to prevent hanging requests
+    backendRequestInit.signal = AbortSignal.timeout(30000); // 30 second timeout
+
+    console.log(`[API Route] Forwarding ${contentType} request to: ${BACKEND_URL}`);
+
+    // Forward request to backend
+    const backendRes = await fetch(BACKEND_URL, backendRequestInit);
 
     // Handle non-OK responses
     if (!backendRes.ok) {
@@ -90,7 +107,7 @@ export async function POST(request: NextRequest) {
     // Parse and return successful response
     try {
       const result = await backendRes.json();
-      return NextResponse.json(result);
+      return NextResponse.json(result, { status: backendRes.status });
     } catch (parseError) {
       console.error('[API Route] Failed to parse backend response:', parseError);
       return NextResponse.json(
@@ -100,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     // Handle network errors, timeouts, etc.
-    console.error('[API Route] Request error:', error);
+    console.error('[API Route] Proxy error:', error);
     
     const errorMessage = error instanceof Error 
       ? error.message 
@@ -120,40 +137,58 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         detections: [], 
-        error: `Proxy error: ${errorMessage}` 
+        error: 'Proxy error while calling backend' 
       },
       { status: 500 }
     );
   }
 }
 
-/**
- * Handle GET requests - for testing/debugging
- */
-export async function GET(request: NextRequest) {
+// Handle other HTTP methods - return 405 Method Not Allowed
+export async function GET() {
   return NextResponse.json(
+    { error: 'Method Not Allowed' },
     { 
-      message: 'Proxy route is working',
-      backendUrl: process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk81.onrender.com',
-      timestamp: new Date().toISOString(),
-    },
-    { status: 200 }
+      status: 405,
+      headers: {
+        'Allow': 'POST',
+      },
+    }
   );
 }
 
-/**
- * Handle OPTIONS preflight requests
- * Not strictly necessary for same-origin requests, but included for completeness
- */
-export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '3600',
-    },
-  });
+export async function PUT() {
+  return NextResponse.json(
+    { error: 'Method Not Allowed' },
+    { 
+      status: 405,
+      headers: {
+        'Allow': 'POST',
+      },
+    }
+  );
 }
 
+export async function DELETE() {
+  return NextResponse.json(
+    { error: 'Method Not Allowed' },
+    { 
+      status: 405,
+      headers: {
+        'Allow': 'POST',
+      },
+    }
+  );
+}
+
+export async function PATCH() {
+  return NextResponse.json(
+    { error: 'Method Not Allowed' },
+    { 
+      status: 405,
+      headers: {
+        'Allow': 'POST',
+      },
+    }
+  );
+}
