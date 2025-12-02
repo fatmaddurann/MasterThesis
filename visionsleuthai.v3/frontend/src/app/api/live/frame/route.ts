@@ -144,51 +144,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handle other HTTP methods - return 405 Method Not Allowed
+// Handle GET requests - return 200 OK with info message
 export async function GET() {
   return NextResponse.json(
-    { error: 'Method Not Allowed' },
-    { 
-      status: 405,
-      headers: {
-        'Allow': 'POST',
-      },
-    }
-  );
-}
-
-export async function PUT() {
-  return NextResponse.json(
-    { error: 'Method Not Allowed' },
-    { 
-      status: 405,
-      headers: {
-        'Allow': 'POST',
-      },
-    }
-  );
-}
-
-export async function DELETE() {
-  return NextResponse.json(
-    { error: 'Method Not Allowed' },
-    { 
-      status: 405,
-      headers: {
-        'Allow': 'POST',
-      },
-    }
-  );
-}
-
-export async function PATCH() {
-  return NextResponse.json(
-    { error: 'Method Not Allowed' },
-    { 
-      status: 405,
-      headers: {
-        'Allow': 'POST',
-      },
-    }
+    { message: 'Live frame API is running. Use POST to send frames.' },
+    { status: 200 }
   );
 }
