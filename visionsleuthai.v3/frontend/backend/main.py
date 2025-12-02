@@ -31,33 +31,37 @@ logger = logging.getLogger(__name__)
 app = FastAPI(debug=DEBUG, docs_url=None, redoc_url=None)
 
 # Add CORS middleware FIRST - MUST be before any other middleware or routes
-# FastAPI CORS middleware automatically handles OPTIONS requests
+# FastAPI CORS middleware automatically handles OPTIONS preflight requests
 origins = [
-    "https://master-thesis-nu.vercel.app",  # Production Vercel frontend
+    "https://master-thesis-nu.vercel.app",  # Production Vercel frontend - EXACT MATCH REQUIRED
     "http://localhost:3000",  # Local development
     "http://localhost:3001",  # Alternative local port
 ]
 
+logger.info(f"CORS middleware configured with allowed origins: {origins}")
+
 # CORS middleware configuration - MUST be added before routes
-# FIX: Changed allow_credentials to False when using specific origins to avoid CORS issues
-# If credentials are needed, use allow_origins with exact match (no trailing slashes)
+# This middleware automatically handles OPTIONS preflight requests
+# and adds CORS headers to all responses
+# Using allow_methods=["*"] and allow_headers=["*"] for simplicity and reliability
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Specific origins
-    allow_credentials=False,  # Set to False to avoid CORS issues with specific origins
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],  # All methods including OPTIONS
-    allow_headers=[
-        "Content-Type",
-        "Authorization",
-        "Accept",
-        "Origin",
-        "X-Requested-With",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers",
-    ],
-    expose_headers=["*"],
-    max_age=3600,  # Cache preflight for 1 hour
+    allow_origins=origins,  # Specific origins (exact match required when allow_credentials=True)
+    allow_credentials=True,  # Allow credentials (cookies, auth headers)
+    allow_methods=["*"],  # Allow all methods (includes OPTIONS automatically)
+    allow_headers=["*"],  # Allow all headers (simpler and more reliable)
+    expose_headers=["*"],  # Expose all response headers to browser
+    max_age=3600,  # Cache preflight responses for 1 hour
 )
+
+logger.info("CORS middleware added successfully")
+
+# Explicit OPTIONS handler for /api/live/frame as a fallback guarantee
+# CORSMiddleware should handle this automatically, but this ensures it works
+@app.options("/api/live/frame")
+async def options_live_frame():
+    """Explicit OPTIONS handler for /api/live/frame - CORSMiddleware will add headers"""
+    return Response(status_code=200)
 
 # File size limit middleware (1GB)
 @app.middleware("http")
@@ -118,6 +122,14 @@ async def health_check():
         "debug": DEBUG,
         "allowed_hosts": ALLOWED_HOSTS
     }
+
+@app.options("/api/live/frame")
+async def test_cors_options(request: Request):
+    """Test endpoint to verify CORS is working - CORSMiddleware should handle this"""
+    origin = request.headers.get("origin", "")
+    logger.info(f"OPTIONS request received at /api/live/frame from origin: {origin}")
+    # CORSMiddleware will add headers automatically
+    return Response(status_code=200)
 
 @app.get("/ready")
 async def readiness_check():

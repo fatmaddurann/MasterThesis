@@ -131,25 +131,50 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 
 @router.options("/frame")
 async def options_frame(request: Request):
-    """Handle CORS preflight requests for /frame endpoint"""
-    origin = request.headers.get("origin")
-    headers = get_cors_headers(origin)
+    """
+    Handle CORS preflight requests for /frame endpoint
+    This explicit handler ensures OPTIONS requests are handled correctly
+    even if CORSMiddleware doesn't catch them for some reason
+    """
+    origin = request.headers.get("origin", "")
+    
+    # Determine which origin to allow
+    if origin in ALLOWED_ORIGINS:
+        allow_origin = origin
+    elif origin:  # Origin provided but not in allowed list
+        # For security, only allow if it's the production origin
+        allow_origin = "https://master-thesis-nu.vercel.app"
+    else:  # No origin header (shouldn't happen in browser, but handle it)
+        allow_origin = "https://master-thesis-nu.vercel.app"
+    
+    # Return 200 with explicit CORS headers
+    headers = {
+        "Access-Control-Allow-Origin": allow_origin,
+        "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
+        "Access-Control-Max-Age": "3600",
+        "Access-Control-Allow-Credentials": "false",
+    }
+    
+    logger.info(f"OPTIONS preflight request from origin: {origin}, allowing: {allow_origin}")
     return Response(status_code=200, headers=headers)
 
 @router.post("/frame")
 async def live_analysis_frame(request: Request):
+    """
+    Handle POST requests for live frame analysis
+    CORS headers are automatically added by CORSMiddleware in main.py
+    """
     try:
         # Parse request body
         data = await request.json()
         image_b64 = data.get("image")
-        origin = request.headers.get("origin")
-        cors_headers = get_cors_headers(origin)
         
         if not image_b64:
+            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 status_code=400,
-                content={"detections": [], "error": "No image data received"},
-                headers=cors_headers
+                content={"detections": [], "error": "No image data received"}
             )
 
         try:
@@ -160,46 +185,44 @@ async def live_analysis_frame(request: Request):
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
             if frame is None:
+                # CORSMiddleware will automatically add CORS headers
                 return JSONResponse(
                     status_code=400,
-                    content={"detections": [], "error": "Invalid image data"},
-                    headers=cors_headers
+                    content={"detections": [], "error": "Invalid image data"}
                 )
 
         except Exception as e:
             logger.warning("Image decode error: %s", str(e))
+            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 status_code=400,
-                content={"detections": [], "error": f"Image decode error: {str(e)}"},
-                headers=cors_headers
+                content={"detections": [], "error": f"Image decode error: {str(e)}"}
             )
 
         # Process frame
         try:
             # Simple rate limit for REST path as well
             results = video_processor.process_frame(frame)
+            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 content={
                     "detections": results["detections"],
                     "suspicious_interactions": results.get("suspicious_interactions", []),
                     "timestamp": datetime.utcnow().isoformat()
-                },
-                headers=cors_headers
+                }
             )
         except Exception as e:
             logger.exception("Model error: %s", str(e))
+            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 status_code=500,
-                content={"detections": [], "error": f"Model error: {str(e)}"},
-                headers=cors_headers
+                content={"detections": [], "error": f"Model error: {str(e)}"}
             )
 
     except Exception as e:
         logger.exception("General error: %s", str(e))
-        origin = request.headers.get("origin") if 'request' in locals() else None
-        cors_headers = get_cors_headers(origin)
+        # CORSMiddleware will automatically add CORS headers
         return JSONResponse(
             status_code=500,
-            content={"detections": [], "error": f"General error: {str(e)}"},
-            headers=cors_headers
+            content={"detections": [], "error": f"General error: {str(e)}"}
         ) 

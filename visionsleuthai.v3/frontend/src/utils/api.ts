@@ -210,15 +210,15 @@ export async function startLiveAnalysis(): Promise<void> {
 /**
  * Send a frame to the backend for live analysis
  * 
- * ARCHITECTURE (Direct Backend Call):
- * - Browser makes request directly to: ${NEXT_PUBLIC_API_URL}/api/live/frame
- * - Backend CORS is configured to allow requests from Vercel frontend
- * - Simpler architecture: Browser → Render Backend (one hop)
+ * ARCHITECTURE (Proxy Route - Recommended):
+ * - Browser makes request to: /api/live/frame (same-origin, NO CORS issues)
+ * - Next.js server forwards to: ${NEXT_PUBLIC_API_URL}/api/live/frame (server-to-server)
+ * - This eliminates CORS issues completely since browser only talks to same-origin Next.js server
  * 
- * BACKEND CORS CONFIGURATION:
+ * ALTERNATIVE (Direct Backend Call):
+ * - If proxy route doesn't work, backend CORS is configured to allow requests from Vercel frontend
  * - Backend allows origin: https://master-thesis-nu.vercel.app
  * - Backend allows methods: GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD
- * - Backend allows headers: Content-Type, Authorization, Accept, Origin, etc.
  */
 export const sendFrame = async (imageData: string) => {
   try {
@@ -227,16 +227,15 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // Get backend URL - use hardcoded URL to ensure it always works
-    // Backend CORS is configured to allow requests from Vercel frontend
-    const backendUrl = 'https://masterthesis-zk81.onrender.com';
-    const backendUrlFull = `${backendUrl}/api/live/frame`;
+    // Use Next.js proxy route (same-origin, NO CORS issues)
+    // Browser → Next.js API Route (same-origin) → Render Backend (server-to-server)
+    const proxyUrl = '/api/live/frame';
 
     // Debug log (will appear in browser console)
-    console.log('[sendFrame] Calling backend directly:', backendUrlFull);
+    console.log('[sendFrame] Calling proxy route:', proxyUrl);
 
-    // Call Render backend directly (CORS configured on backend)
-    const response = await fetch(backendUrlFull, {
+    // Call Next.js proxy route (same-origin, no CORS)
+    const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
