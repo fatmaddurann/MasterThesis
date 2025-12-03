@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Force dynamic rendering - prevents static optimization
+// This ensures Vercel treats this as a serverless function
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
@@ -94,3 +95,14 @@ export async function GET() {
   );
 }
 
+// Explicitly export OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
