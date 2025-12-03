@@ -90,7 +90,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json(
-    { message: "Live frame API is running. Use POST to send frames." },
+    { 
+      message: "Live frame API is running. Use POST to send frames.",
+      timestamp: new Date().toISOString(),
+      route: "/api/live/frame",
+      method: "GET"
+    },
     { status: 200 }
   );
 }
