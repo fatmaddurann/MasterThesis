@@ -38,7 +38,12 @@ origins = [
     "http://localhost:3001",  # Alternative local port
 ]
 
+# Vercel preview deployment pattern: https://master-thesis-*-*.vercel.app
+# Using regex pattern to match all Vercel preview deployments
+vercel_preview_pattern = r"https://master-thesis-.*\.vercel\.app"
+
 logger.info(f"CORS middleware configured with allowed origins: {origins}")
+logger.info(f"CORS middleware configured with Vercel preview pattern: {vercel_preview_pattern}")
 
 # CORS middleware configuration - MUST be added before routes
 # This middleware automatically handles OPTIONS preflight requests
@@ -47,6 +52,7 @@ logger.info(f"CORS middleware configured with allowed origins: {origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # Specific origins (exact match required when allow_credentials=True)
+    allow_origin_regex=vercel_preview_pattern,  # Allow all Vercel preview deployments
     allow_credentials=True,  # Allow credentials (cookies, auth headers)
     allow_methods=["*"],  # Allow all methods (includes OPTIONS automatically)
     allow_headers=["*"],  # Allow all headers (simpler and more reliable)
