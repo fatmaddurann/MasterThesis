@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const BACKEND_URL = "https://masterthesis-zk81.onrender.com/api/live/frame";
 
 export async function POST(request: NextRequest) {
