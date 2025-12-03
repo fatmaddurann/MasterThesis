@@ -227,15 +227,17 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // Use Next.js proxy route (same-origin, NO CORS issues)
-    // Browser → Next.js API Route (same-origin) → Render Backend (server-to-server)
-    const proxyUrl = '/api/live/frame';
+    // DIRECT BACKEND CALL - Backend CORS is already configured
+    // Backend allows origin: https://master-thesis-nu.vercel.app
+    // This bypasses the Next.js proxy route that was causing 404 errors
+    const backendUrl = API_BASE_URL;
+    const backendEndpoint = `${backendUrl}/api/live/frame`;
 
     // Debug log (will appear in browser console)
-    console.log('[sendFrame] Calling proxy route:', proxyUrl);
+    console.log('[sendFrame] Calling backend directly:', backendEndpoint);
 
-    // Call Next.js proxy route (same-origin, no CORS)
-    const response = await fetch(proxyUrl, {
+    // Call backend directly (CORS is configured on backend)
+    const response = await fetch(backendEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
