@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Force dynamic rendering for this route
+// Force dynamic rendering - prevents static optimization
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const revalidate = 0;
 
 const BACKEND_URL = "https://masterthesis-zk81.onrender.com/api/live/frame";
 
