@@ -43,15 +43,19 @@ export default async function handler(
   try {
     // Forward the request to the backend
     console.log(`[PagesProxy] Forwarding request to: ${BACKEND_URL}`);
+    console.log(`[PagesProxy] Request body size: ${JSON.stringify(req.body).length} bytes`);
 
     const backendRes = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Origin': 'https://master-thesis-nu.vercel.app', // Force correct origin header
       },
       body: JSON.stringify(req.body),
       signal: AbortSignal.timeout(30000),
     });
+
+    console.log(`[PagesProxy] Backend response status: ${backendRes.status}`);
 
     if (!backendRes.ok) {
       let errorData: any;
