@@ -102,7 +102,7 @@ declare global {
 
 const getApiBaseUrl = (): string => {
   // Next.js environment variables are available at build time
-  const defaultUrl = 'https://masterthesis-zk81.onrender.com';
+  const defaultUrl = 'https://masterthesis-zk8l.onrender.com';
   const envUrl = process.env.NEXT_PUBLIC_API_URL || defaultUrl;
   return envUrl.replace(/\/+$/, '');
 };
@@ -111,7 +111,7 @@ const getWsBase = (): string => {
   // Prefer explicit WS env, else derive from API base
   const fromEnv = process.env.NEXT_PUBLIC_WS_URL || '';
   if (fromEnv) return fromEnv.replace(/\/+$/, '');
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk81.onrender.com';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://masterthesis-zk8l.onrender.com';
   // Convert http(s) -> ws(s)
   return apiUrl.replace(/\/+$/, '').replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
 };

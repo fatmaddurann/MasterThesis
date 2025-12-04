@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'; // static olmasını engelle
 export const runtime = 'nodejs';
 export const revalidate = 0;
 
-const BACKEND_URL = "https://masterthesis-zk81.onrender.com/api/live/frame";
+const BACKEND_URL = "https://masterthesis-zk8l.onrender.com/api/live/frame";
 
 export async function POST(request: NextRequest) {
   console.log('[AppRouter-Proxy] Received request');

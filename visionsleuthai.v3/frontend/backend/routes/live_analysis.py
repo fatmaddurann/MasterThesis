@@ -152,9 +152,9 @@ async def options_frame(request: Request):
         "Access-Control-Allow-Origin": allow_origin,
         "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
-        "Access-Control-Max-Age": "3600",
+            "Access-Control-Max-Age": "3600",
         "Access-Control-Allow-Credentials": "false",
-    }
+        }
     
     logger.info(f"OPTIONS preflight request from origin: {origin}, allowing: {allow_origin}")
     return Response(status_code=200, headers=headers)

@@ -10,7 +10,7 @@ export const config = {
   },
 };
 
-const BACKEND_URL = "https://masterthesis-zk81.onrender.com/api/live/frame";
+const BACKEND_URL = "https://masterthesis-zk8l.onrender.com/api/live/frame";
 
 export default async function handler(
   req: NextApiRequest,
