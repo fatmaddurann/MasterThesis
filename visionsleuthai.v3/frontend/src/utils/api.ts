@@ -227,11 +227,9 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // USE NEXT.JS PROXY ROUTE - This avoids CORS issues completely
-    // Browser → Next.js API route (same origin, no CORS)
-    // Next.js API route → Backend (server-side, no CORS)
-    // This is the ONLY reliable way to avoid CORS issues
-    const proxyEndpoint = '/api/proxy-live';
+    // USE NEXT.JS PROXY ROUTE (PAGES ROUTER VERSION)
+    // Switching to Pages Router (/pages/api/live-proxy.ts) because App Router was failing
+    const proxyEndpoint = '/api/live-proxy';
 
     // Debug log (will appear in browser console)
     console.log('[sendFrame] Using Next.js proxy route:', proxyEndpoint);
