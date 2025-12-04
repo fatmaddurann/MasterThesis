@@ -1,7 +1,7 @@
 import os
 import logging
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from routes import video_analysis, forensic_report, live_analysis
 
@@ -58,6 +58,15 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+# DEBUG ENDPOINT: List all registered routes
+@app.get("/debug/routes")
+async def list_routes(request: Request):
+    url_list = [
+        {"path": route.path, "name": route.name}
+        for route in request.app.routes
+    ]
+    return {"routes": url_list}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
