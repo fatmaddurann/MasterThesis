@@ -62,9 +62,14 @@ export default async function handler(
       }
       
       console.error(`[PagesProxy] Backend error: ${backendRes.status}`, errorData);
-      res.status(backendRes.status).json({
+      
+      // If backend returns 404, map it to 502 to distinguish from frontend 404
+      const statusToReturn = backendRes.status === 404 ? 502 : backendRes.status;
+      
+      res.status(statusToReturn).json({
         detections: [],
         error: errorData.error || errorData.detail || `Backend error: ${backendRes.status}`,
+        source: 'backend' // Flag to indicate error came from backend
       });
       return;
     }
