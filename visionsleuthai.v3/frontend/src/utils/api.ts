@@ -231,7 +231,7 @@ export const sendFrame = async (imageData: string) => {
     // Browser → Next.js API route (same origin, no CORS)
     // Next.js API route → Backend (server-side, no CORS)
     // This is the ONLY reliable way to avoid CORS issues
-    const proxyEndpoint = '/api/live/frame';
+    const proxyEndpoint = '/api/proxy-live';
 
     // Debug log (will appear in browser console)
     console.log('[sendFrame] Using Next.js proxy route:', proxyEndpoint);

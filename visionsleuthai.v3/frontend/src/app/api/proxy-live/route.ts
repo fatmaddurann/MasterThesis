@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
 
     backendRequestInit.signal = AbortSignal.timeout(30000);
 
+    console.log(`[Proxy] Forwarding request to: ${BACKEND_URL}`);
     const backendRes = await fetch(BACKEND_URL, backendRequestInit);
 
     if (!backendRes.ok) {
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
         errorData = { error: `Backend returned ${backendRes.status} ${backendRes.statusText}` };
       }
 
+      console.error(`[Proxy] Backend error: ${backendRes.status}`, errorData);
       return NextResponse.json(
         {
           detections: [],
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error: any) {
+    console.error("[Proxy] Internal error:", error);
     const message = error?.message || "Internal server error";
 
     if (message.includes("timeout") || message.includes("aborted")) {
@@ -91,10 +94,10 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json(
     { 
-      message: "Live frame API is running. Use POST to send frames.",
+      message: "Live Proxy API is running. Use POST to send frames.",
       timestamp: new Date().toISOString(),
-      route: "/api/live/frame",
-      method: "GET"
+      route: "/api/proxy-live",
+      target: BACKEND_URL
     },
     { status: 200 }
   );
@@ -111,3 +114,4 @@ export async function OPTIONS() {
     },
   });
 }
+
