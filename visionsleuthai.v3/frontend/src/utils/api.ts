@@ -227,54 +227,53 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // USE NEXT.JS PROXY ROUTE (PAGES ROUTER VERSION)
-    // Switching to Pages Router (/pages/api/live-proxy.ts) because App Router was failing
-    const proxyEndpoint = '/api/live-proxy';
+    // DOUBLE FALLBACK STRATEGY
+    // 1. Try Pages Router endpoint (/api/live-proxy)
+    // 2. Try App Router endpoint (/api/proxy)
+    const endpoints = ['/api/live-proxy', '/api/proxy'];
+    let lastError;
 
-    // Debug log (will appear in browser console)
-    console.log('[sendFrame] Using Next.js proxy route:', proxyEndpoint);
-
-    // Call Next.js proxy route (same origin, no CORS issues)
-    const response = await fetch(proxyEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ image: imageData }),
-      // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(30000), // 30 second timeout
-    });
-
-    // Handle non-OK responses with detailed error messages
-    if (!response.ok) {
-      let errorData;
+    for (const endpoint of endpoints) {
       try {
-        errorData = await response.json();
-      } catch {
-        // If response is not JSON, create error from status
-        errorData = {
-          error: `Server returned ${response.status} ${response.statusText}`,
-        };
-      }
-      
-      // Provide user-friendly error messages based on status code
-      if (response.status === 404) {
-        throw new Error('API endpoint not found. The backend route may not be deployed.');
-      } else if (response.status >= 500) {
-        throw new Error(`Backend server error: ${errorData.error || errorData.detail || 'Please try again later.'}`);
-      } else if (response.status >= 400) {
-        throw new Error(`Request error: ${errorData.error || errorData.detail || 'Invalid request.'}`);
-      } else {
-        throw new Error(errorData.error || errorData.detail || 'Failed to process frame');
+        console.log(`[sendFrame] Trying endpoint: ${endpoint}`);
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imageData }),
+          signal: AbortSignal.timeout(15000), // 15s timeout per try
+        });
+
+        if (response.status === 404) {
+          console.warn(`[sendFrame] Endpoint ${endpoint} not found (404), trying next...`);
+          continue; // Try next endpoint
+        }
+
+        if (!response.ok) {
+           // Server error (500) or Request error (400) - do not retry different endpoint, logic is same
+           const errorData = await response.json().catch(() => ({}));
+           throw new Error(errorData.error || errorData.detail || `Error ${response.status}`);
+        }
+
+        // Success!
+        return await response.json();
+
+      } catch (err) {
+        console.warn(`[sendFrame] Error with ${endpoint}:`, err);
+        lastError = err;
+        // If it's a network/timeout error, maybe retry? For now, just continue to next endpoint if strictly needed, 
+        // but usually we only retry on 404. 
+        // Here, let's assume if one fails with 404, we try the other.
+        if (err instanceof Error && err.message.includes('404')) {
+            continue;
+        }
+        // Real error (like timeout or 500), stop and throw
+        throw err;
       }
     }
 
-    // Parse and return successful response
-    try {
-      return await response.json();
-    } catch (parseError) {
-      throw new Error('Failed to parse backend response');
-    }
+    // If we get here, all endpoints failed
+    throw new Error('All API endpoints failed. Please check deployment.');
+
   } catch (error) {
     // Re-throw with better error messages
     if (error instanceof Error) {
