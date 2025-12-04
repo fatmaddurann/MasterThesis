@@ -3,7 +3,7 @@ import logging
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import video_analysis, forensic_analysis, live_analysis
+from routes import video_analysis, forensic_report, live_analysis
 
 # Configure logging
 logging.basicConfig(
@@ -47,7 +47,7 @@ logger.info("CORS middleware added successfully")
 
 # Include routers
 app.include_router(video_analysis.router, prefix="/api/video", tags=["video"])
-app.include_router(forensic_analysis.router, prefix="/api/forensic", tags=["forensic"])
+app.include_router(forensic_report.router, prefix="/api/forensic", tags=["forensic"])
 app.include_router(live_analysis.router, prefix="/api/live", tags=["live"])
 
 # Health check endpoint - CRITICAL for Render
