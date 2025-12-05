@@ -30,8 +30,8 @@ vercel_preview_pattern = r"https://master-thesis-.*\.vercel\.app"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=vercel_preview_pattern,
+    allow_origins=["*"],  # Allow ALL origins
+    allow_origin_regex=None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

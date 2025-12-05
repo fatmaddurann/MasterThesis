@@ -122,24 +122,18 @@ async def options_frame(request: Request):
     """
     Handle CORS preflight requests for /frame endpoint
     """
-    origin = request.headers.get("origin", "")
+    origin = request.headers.get("origin", "*")
     
-    if origin in ALLOWED_ORIGINS:
-        allow_origin = origin
-    elif origin:
-        allow_origin = "https://master-thesis-nu.vercel.app"
-    else:
-        allow_origin = "https://master-thesis-nu.vercel.app"
-    
+    # Simplified CORS: Allow all origins for OPTIONS
     headers = {
-        "Access-Control-Allow-Origin": allow_origin,
+        "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
         "Access-Control-Max-Age": "3600",
         "Access-Control-Allow-Credentials": "true",
     }
     
-    logger.info(f"OPTIONS preflight request from origin: {origin}, allowing: {allow_origin}")
+    logger.info(f"OPTIONS preflight request from origin: {origin}, allowing: {origin}")
     return Response(status_code=200, headers=headers)
 
 @router.post("/frame")
