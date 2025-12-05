@@ -1,12 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Force dynamic (Pages Router is dynamic by default for API routes, but good to be explicit if using configs)
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb', // Allow larger images if needed
+      sizeLimit: '10mb',
     },
-    externalResolver: true, // Tell Next.js this is handled by an external source (backend)
+    externalResolver: true,
   },
 };
 
@@ -29,8 +28,7 @@ export default async function handler(
   if (req.method === 'GET') {
     res.status(200).json({ 
       message: "Live Proxy API (Pages Router) is running. Use POST to send frames.",
-      timestamp: new Date().toISOString(),
-      route: "/api/live-proxy"
+      status: "active"
     });
     return;
   }
@@ -41,31 +39,22 @@ export default async function handler(
   }
 
   try {
-    // Forward the request to the backend
-    console.log(`[PagesProxy] Forwarding request to: ${BACKEND_URL}`);
-    console.log(`[PagesProxy] Request body size: ${JSON.stringify(req.body).length} bytes`);
-
     const backendRes = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Origin': 'https://master-thesis-nu.vercel.app', // Force correct origin header
       },
       body: JSON.stringify(req.body),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     });
-
-    console.log(`[PagesProxy] Backend response status: ${backendRes.status}`);
 
     if (!backendRes.ok) {
       let errorData: any;
       try {
         errorData = await backendRes.json();
       } catch {
-        errorData = { error: `Backend returned ${backendRes.status} ${backendRes.statusText}` };
+        errorData = { error: `Backend status: ${backendRes.status}` };
       }
-      
-      console.error(`[PagesProxy] Backend error: ${backendRes.status}`, errorData);
       
       // If backend returns 404, map it to 502 to distinguish from frontend 404
       const statusToReturn = backendRes.status === 404 ? 502 : backendRes.status;
@@ -73,7 +62,7 @@ export default async function handler(
       res.status(statusToReturn).json({
         detections: [],
         error: errorData.error || errorData.detail || `Backend error: ${backendRes.status}`,
-        source: 'backend' // Flag to indicate error came from backend
+        source: 'backend'
       });
       return;
     }
@@ -82,13 +71,12 @@ export default async function handler(
     res.status(200).json(result);
 
   } catch (error: any) {
-    console.error("[PagesProxy] Internal error:", error);
     const message = error?.message || "Internal server error";
-
+    
     if (message.includes("timeout") || message.includes("aborted")) {
       res.status(504).json({
         detections: [],
-        error: "Request timeout. Backend may be slow or unavailable.",
+        error: "Request timeout. Backend is warming up, please try again.",
       });
       return;
     }
@@ -99,4 +87,3 @@ export default async function handler(
     });
   }
 }
-
