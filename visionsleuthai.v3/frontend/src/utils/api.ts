@@ -201,6 +201,14 @@ export async function startLiveAnalysis(): Promise<void> {
 
 /**
  * Send a frame to the backend for live analysis
+ * 
+ * UPDATED STRATEGY: DIRECT BACKEND CALL
+ * We are bypassing the Next.js proxy (/api/live-proxy) because Vercel's Hobby plan 
+ * has a strict 10s timeout for serverless functions. Even with a paid Render backend,
+ * network latency + inference time can occasionally exceed 10s, causing 504 Gateway Timeouts
+ * from Vercel.
+ * 
+ * The backend handles CORS correctly now, so we can call it directly.
  */
 export const sendFrame = async (imageData: string) => {
   try {
@@ -208,15 +216,18 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // Use the stable Pages Router proxy
-    const endpoint = '/api/live-proxy';
+    // Use DIRECT backend URL to avoid Vercel 10s timeout
+    const endpoint = `${API_BASE_URL}/api/live/frame`;
     
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          // 'Origin': window.location.origin // Browser sets this automatically
+        },
         body: JSON.stringify({ image: imageData }),
-        // Increased timeout to 60s to handle Render Free Tier cold starts
+        // Increased timeout to 60s to handle network latency and inference
         signal: AbortSignal.timeout(60000),
       });
 
@@ -234,7 +245,7 @@ export const sendFrame = async (imageData: string) => {
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError' || error.message.includes('timeout')) {
-        throw new Error('Request timeout. Backend is warming up (cold start), please wait a moment and try again.');
+        throw new Error('Request timeout. Backend is busy, please wait a moment and try again.');
       }
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         throw new Error('Network error. Please check your internet connection.');

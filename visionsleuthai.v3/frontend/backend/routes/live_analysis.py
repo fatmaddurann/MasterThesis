@@ -10,6 +10,7 @@ import base64
 from fastapi.responses import JSONResponse, Response
 import logging
 import os
+from pydantic import BaseModel
 from utils.metrics import frames_processed, frames_dropped, start_timer, observe_latency_ms
 
 router = APIRouter()
@@ -30,21 +31,8 @@ ALLOWED_ORIGINS = [
     "http://localhost:3001",
 ]
 
-def get_cors_headers(origin: str = None) -> dict:
-    """Get CORS headers for response (backup if middleware doesn't work)"""
-    headers = {
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
-        "Access-Control-Max-Age": "3600",
-    }
-    # FIX: Removed allow_credentials to match main.py middleware setting
-    # When allow_credentials=False in middleware, we shouldn't set it in manual headers
-    if origin and origin in ALLOWED_ORIGINS:
-        headers["Access-Control-Allow-Origin"] = origin
-    elif not origin:
-        # If no origin header, allow the production origin as fallback
-        headers["Access-Control-Allow-Origin"] = "https://master-thesis-nu.vercel.app"
-    return headers
+class FrameInput(BaseModel):
+    image: str
 
 # Initialize model and processor once (lazy load inside model) - LIVE ANALYSIS MODE
 model = CrimeDetectionModel(mode="live_analysis")
@@ -133,59 +121,49 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 async def options_frame(request: Request):
     """
     Handle CORS preflight requests for /frame endpoint
-    This explicit handler ensures OPTIONS requests are handled correctly
-    even if CORSMiddleware doesn't catch them for some reason
     """
     origin = request.headers.get("origin", "")
     
-    # Determine which origin to allow
     if origin in ALLOWED_ORIGINS:
         allow_origin = origin
-    elif origin:  # Origin provided but not in allowed list
-        # For security, only allow if it's the production origin
+    elif origin:
         allow_origin = "https://master-thesis-nu.vercel.app"
-    else:  # No origin header (shouldn't happen in browser, but handle it)
+    else:
         allow_origin = "https://master-thesis-nu.vercel.app"
     
-    # Return 200 with explicit CORS headers
     headers = {
         "Access-Control-Allow-Origin": allow_origin,
         "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
-            "Access-Control-Max-Age": "3600",
-        "Access-Control-Allow-Credentials": "false",
-        }
+        "Access-Control-Max-Age": "3600",
+        "Access-Control-Allow-Credentials": "true",
+    }
     
     logger.info(f"OPTIONS preflight request from origin: {origin}, allowing: {allow_origin}")
     return Response(status_code=200, headers=headers)
 
 @router.post("/frame")
-async def live_analysis_frame(request: Request):
+def live_analysis_frame(input_data: FrameInput):
     """
     Handle POST requests for live frame analysis
-    CORS headers are automatically added by CORSMiddleware in main.py
+    Defined as synchronous 'def' to run in threadpool and avoid blocking event loop.
     """
     try:
-        # Parse request body
-        data = await request.json()
-        image_b64 = data.get("image")
+        image_b64 = input_data.image
         
         if not image_b64:
-            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 status_code=400,
                 content={"detections": [], "error": "No image data received"}
             )
 
         try:
-            # Decode base64 image
             header, encoded = image_b64.split(",", 1) if "," in image_b64 else ("", image_b64)
             img_bytes = base64.b64decode(encoded)
             nparr = np.frombuffer(img_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
             if frame is None:
-                # CORSMiddleware will automatically add CORS headers
                 return JSONResponse(
                     status_code=400,
                     content={"detections": [], "error": "Invalid image data"}
@@ -193,7 +171,6 @@ async def live_analysis_frame(request: Request):
 
         except Exception as e:
             logger.warning("Image decode error: %s", str(e))
-            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 status_code=400,
                 content={"detections": [], "error": f"Image decode error: {str(e)}"}
@@ -201,9 +178,8 @@ async def live_analysis_frame(request: Request):
 
         # Process frame
         try:
-            # Simple rate limit for REST path as well
             results = video_processor.process_frame(frame)
-            # CORSMiddleware will automatically add CORS headers
+            
             return JSONResponse(
                 content={
                     "detections": results["detections"],
@@ -213,7 +189,6 @@ async def live_analysis_frame(request: Request):
             )
         except Exception as e:
             logger.exception("Model error: %s", str(e))
-            # CORSMiddleware will automatically add CORS headers
             return JSONResponse(
                 status_code=500,
                 content={"detections": [], "error": f"Model error: {str(e)}"}
@@ -221,8 +196,7 @@ async def live_analysis_frame(request: Request):
 
     except Exception as e:
         logger.exception("General error: %s", str(e))
-        # CORSMiddleware will automatically add CORS headers
         return JSONResponse(
             status_code=500,
             content={"detections": [], "error": f"General error: {str(e)}"}
-        ) 
+        )
