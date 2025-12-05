@@ -222,9 +222,10 @@ export const sendFrame = async (imageData: string) => {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
+        mode: 'cors', // Explicitly request CORS mode
         headers: { 
           'Content-Type': 'application/json',
-          // 'Origin': window.location.origin // Browser sets this automatically
+          // Browser sets Origin automatically, do not set manually
         },
         body: JSON.stringify({ image: imageData }),
         // Increased timeout to 60s to handle network latency and inference
