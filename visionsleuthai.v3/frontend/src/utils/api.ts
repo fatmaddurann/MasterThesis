@@ -216,20 +216,22 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // REVERT TO PROXY STRATEGY:
-    // Direct backend calls are failing due to persistent CORS issues and Render deployment lag.
-    // We are reverting to the Next.js Proxy (/api/live-proxy) which guarantees NO CORS errors
-    // since it's a Same-Origin request.
-    // The backend blocking issue (timeout) is resolved by the 'def' change in backend,
-    // so the proxy should now work fast enough to avoid Vercel's 10s timeout.
-    const endpoint = '/api/live-proxy';
+    // REVERT TO DIRECT BACKEND STRATEGY:
+    // The proxy approach (/api/live-proxy) fails because Render returns HTML (Cloudflare/Cold Start)
+    // which the proxy cannot handle (results in 502).
+    // Browsers can handle these intermediate states/redirects much better.
+    // Since backend has allow_origins=["*"], CORS should not be an issue if the backend is actually reachable.
+    const endpoint = `${API_BASE_URL}/api/live/frame`;
     
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+          // Note: Do NOT add custom headers like x-api-key here as they might trigger strict CORS preflights
+        },
         body: JSON.stringify({ image: imageData }),
-        // 60s timeout is good for the client-side fetch to the proxy
+        // 60s timeout to handle cold starts
         signal: AbortSignal.timeout(60000),
       });
 
