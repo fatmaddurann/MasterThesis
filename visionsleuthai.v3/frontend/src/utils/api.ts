@@ -222,7 +222,8 @@ export const sendFrame = async (imageData: string) => {
     // since it's a Same-Origin request.
     // The backend blocking issue (timeout) is resolved by the 'def' change in backend,
     // so the proxy should now work fast enough to avoid Vercel's 10s timeout.
-    const endpoint = '/api/live-proxy';
+    // Add timestamp to bypass caching
+    const endpoint = `/api/live-proxy?t=${Date.now()}`;
     
     try {
       const response = await fetch(endpoint, {

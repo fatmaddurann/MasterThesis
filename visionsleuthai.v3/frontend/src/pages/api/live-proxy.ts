@@ -67,6 +67,17 @@ export default async function handler(
       return;
     }
 
+    const contentType = backendRes.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      console.error('Backend returned HTML instead of JSON (Cloudflare/Render Page)');
+      res.status(503).json({
+        detections: [],
+        error: "Backend is warming up (Cloudflare/Render). Please wait 1-2 minutes and try again.",
+        source: 'proxy_html_check'
+      });
+      return;
+    }
+
     const result = await backendRes.json();
     res.status(200).json(result);
 
