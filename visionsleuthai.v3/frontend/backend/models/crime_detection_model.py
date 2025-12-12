@@ -47,8 +47,8 @@ class CrimeDetectionModel:
             self.temp_scale = float(os.getenv("CONFIDENCE_TEMP_SCALE", "1.0"))
         except Exception:
             self.temp_scale = 1.0
-        # Model path/name - use YOLOv8x for better detection
-        self.model_path = os.getenv("MODEL_PATH", "yolov8x.pt")
+        # Model path/name - use YOLOv8n for faster inference on CPU (Render free tier)
+        self.model_path = os.getenv("MODEL_PATH", "yolov8n.pt")
         
         # Dangerous object mapping for better crime detection
         # Expanded to include more variations and YOLOv8 class names

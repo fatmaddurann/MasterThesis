@@ -56,14 +56,18 @@ export default async function handler(
         errorData = { error: `Backend status: ${backendRes.status}` };
       }
       
-      // If backend returns 404, map it to 502 to distinguish from frontend 404
-      const statusToReturn = backendRes.status === 404 ? 502 : backendRes.status;
-      
-      res.status(statusToReturn).json({
-        detections: [],
-        error: errorData.error || errorData.detail || `Backend error: ${backendRes.status}`,
-        source: 'backend'
-      });
+             // If backend returns 404, map it to 502 to distinguish from frontend 404
+             const statusToReturn = backendRes.status === 404 ? 502 : backendRes.status;
+             
+             const errorBody = JSON.stringify(errorData).slice(0, 200); // Limit log size
+             console.error(`[Proxy Error] Backend returned ${backendRes.status}. Body: ${errorBody}`);
+
+             res.status(statusToReturn).json({
+               detections: [],
+               error: errorData.error || errorData.detail || `Backend error: ${backendRes.status}`,
+               details: errorData,
+               source: 'backend'
+             });
       return;
     }
 
