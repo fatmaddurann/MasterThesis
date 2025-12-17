@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
 
-const BACKEND_URL = "https://masterthesis-zk81.onrender.com/api/live/frame";
+// Correct Render backend URL (zk8l, not zk81)
+const BACKEND_URL = "https://masterthesis-zk8l.onrender.com/api/live/frame";
 
 export async function POST(request: NextRequest) {
   try {
