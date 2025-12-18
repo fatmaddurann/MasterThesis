@@ -11,6 +11,14 @@ export const config = {
 
 const BACKEND_URL = "https://masterthesis-zk8l.onrender.com/api/live/frame";
 
+function agentLog(payload: any) {
+  // Enable in production only if ?agentdebug=1 is in query (but we're server-side, so check env)
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_DEBUG_LOGS) return;
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(()=>{});
+  // #endregion
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -38,7 +46,11 @@ export default async function handler(
     return;
   }
 
+  const t0 = Date.now();
+  agentLog({location:'live-proxy.ts:handler',message:'Proxy entry',data:{backendUrl:BACKEND_URL,bodySize:JSON.stringify(req.body)?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
+
   try {
+    agentLog({location:'live-proxy.ts:handler',message:'Before backend fetch',data:{backendUrl:BACKEND_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
     const backendRes = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: {
@@ -47,6 +59,8 @@ export default async function handler(
       body: JSON.stringify(req.body),
       signal: AbortSignal.timeout(60000),
     });
+    const dt = Date.now() - t0;
+    agentLog({location:'live-proxy.ts:handler',message:'After backend fetch',data:{status:backendRes.status,ok:backendRes.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
 
     if (!backendRes.ok) {
       let errorData: any;
@@ -87,6 +101,8 @@ export default async function handler(
 
   } catch (error: any) {
     const message = error?.message || "Internal server error";
+    const dt = Date.now() - t0;
+    agentLog({location:'live-proxy.ts:handler',message:'Proxy catch',data:{name:error?.name,message,dt_ms:dt,isTimeout:message.includes('timeout')||message.includes('aborted')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
     
     if (message.includes("timeout") || message.includes("aborted")) {
       res.status(504).json({

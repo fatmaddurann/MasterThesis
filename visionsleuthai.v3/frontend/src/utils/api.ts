@@ -118,6 +118,16 @@ const getWsBase = (): string => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+function agentLog(payload: any) {
+  // Enable in production only if ?agentdebug=1 is in URL
+  if (typeof window === 'undefined') return;
+  const allowProd = new URLSearchParams(window.location.search).get('agentdebug') === '1';
+  if (!allowProd && (process.env.NODE_ENV === 'production' || !!process.env.NEXT_PUBLIC_VERCEL_ENV)) return;
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(()=>{});
+  // #endregion
+}
+
 export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
   try {
     const formData = new FormData();
@@ -211,6 +221,7 @@ export async function startLiveAnalysis(): Promise<void> {
  * The backend handles CORS correctly now, so we can call it directly.
  */
 export const sendFrame = async (imageData: string) => {
+  agentLog({location:'api.ts:sendFrame',message:'sendFrame entry',data:{imageLen:imageData?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
   try {
     if (!imageData || typeof imageData !== 'string') {
       throw new Error('Invalid image data provided');
@@ -225,6 +236,9 @@ export const sendFrame = async (imageData: string) => {
     // Add timestamp to bypass caching
     const endpoint = `/api/live-proxy?t=${Date.now()}`;
     
+    const t0 = Date.now();
+    agentLog({location:'api.ts:sendFrame',message:'Before fetch',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+    
     try {
       const response = await fetch(endpoint, {
       method: 'POST',
@@ -234,14 +248,20 @@ export const sendFrame = async (imageData: string) => {
         signal: AbortSignal.timeout(60000),
     });
 
+    const dt = Date.now() - t0;
+    agentLog({location:'api.ts:sendFrame',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+
     if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || errorData.detail || `Error ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    agentLog({location:'api.ts:sendFrame',message:'Success',data:{detections:result?.detections?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+    return result;
 
-    } catch (err) {
+    } catch (err: any) {
+      agentLog({location:'api.ts:sendFrame',message:'Fetch catch',data:{name:err?.name,message:err?.message,dt_ms:Date.now()-t0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
       throw err;
     }
 

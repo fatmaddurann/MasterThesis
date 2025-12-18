@@ -142,6 +142,15 @@ def live_analysis_frame(input_data: FrameInput):
     Handle POST requests for live frame analysis
     Defined as synchronous 'def' to run in threadpool and avoid blocking event loop.
     """
+    import json
+    import time
+    t0 = time.time()
+    # #region agent log
+    try:
+        with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"timeout-C","location":"live_analysis.py:live_analysis_frame","message":"Backend entry","data":{"imageLen":len(input_data.image) if input_data.image else 0},"timestamp":int(time.time()*1000)}) + "\n")
+    except: pass
+    # #endregion
     try:
         image_b64 = input_data.image
         
@@ -172,7 +181,18 @@ def live_analysis_frame(input_data: FrameInput):
 
         # Process frame
         try:
+            # #region agent log
+            t_proc = time.time()
+            # #endregion
             results = video_processor.process_frame(frame)
+            # #region agent log
+            dt_proc = time.time() - t_proc
+            dt_total = time.time() - t0
+            try:
+                with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"timeout-C","location":"live_analysis.py:live_analysis_frame","message":"After processing","data":{"proc_ms":dt_proc*1000,"total_ms":dt_total*1000,"detections":len(results.get("detections",[]))},"timestamp":int(time.time()*1000)}) + "\n")
+            except: pass
+            # #endregion
             
             return JSONResponse(
                 content={
@@ -189,6 +209,13 @@ def live_analysis_frame(input_data: FrameInput):
             )
 
     except Exception as e:
+        # #region agent log
+        dt_total = time.time() - t0
+        try:
+            with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"timeout-C","location":"live_analysis.py:live_analysis_frame","message":"General exception","data":{"error":str(e),"total_ms":dt_total*1000},"timestamp":int(time.time()*1000)}) + "\n")
+        except: pass
+        # #endregion
         logger.exception("General error: %s", str(e))
         return JSONResponse(
             status_code=500,
