@@ -51,13 +51,14 @@ export default async function handler(
 
   try {
     agentLog({location:'live-proxy.ts:handler',message:'Before backend fetch',data:{backendUrl:BACKEND_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
+    // Reduce timeout to 8s to fail fast before Vercel's 10s limit
     const backendRes = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(req.body),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(8000), // 8s timeout (Vercel limit is 10s)
     });
     const dt = Date.now() - t0;
     agentLog({location:'live-proxy.ts:handler',message:'After backend fetch',data:{status:backendRes.status,ok:backendRes.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
@@ -102,19 +103,48 @@ export default async function handler(
   } catch (error: any) {
     const message = error?.message || "Internal server error";
     const dt = Date.now() - t0;
-    agentLog({location:'live-proxy.ts:handler',message:'Proxy catch',data:{name:error?.name,message,dt_ms:dt,isTimeout:message.includes('timeout')||message.includes('aborted')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
+    const errorName = error?.name || "UnknownError";
+    agentLog({location:'live-proxy.ts:handler',message:'Proxy catch',data:{name:errorName,message,dt_ms:dt,isTimeout:message.includes('timeout')||message.includes('aborted')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
     
-    if (message.includes("timeout") || message.includes("aborted")) {
+    // Check if it's a timeout/abort error
+    if (errorName === 'AbortError' || message.includes("timeout") || message.includes("aborted")) {
+      console.error(`[Proxy Timeout] Backend request timed out after ${dt}ms. Backend URL: ${BACKEND_URL}`);
       res.status(504).json({
         detections: [],
-        error: "Request timeout. Backend is warming up, please try again.",
+        error: `Request timeout after ${Math.round(dt/1000)}s. Backend may be slow or unreachable.`,
+        details: {
+          elapsed_ms: dt,
+          backend_url: BACKEND_URL,
+          error_name: errorName
+        }
       });
       return;
     }
 
+    // Network errors
+    if (message.includes("Failed to fetch") || message.includes("NetworkError") || message.includes("ECONNREFUSED")) {
+      console.error(`[Proxy Network Error] Cannot reach backend: ${message}`);
+      res.status(503).json({
+        detections: [],
+        error: "Cannot reach backend server. Please check backend status.",
+        details: {
+          backend_url: BACKEND_URL,
+          error_message: message
+        }
+      });
+      return;
+    }
+
+    // Other errors
+    console.error(`[Proxy Error] Unexpected error: ${message}`);
     res.status(500).json({ 
       detections: [], 
-      error: "Proxy error while calling backend" 
+      error: "Proxy error while calling backend",
+      details: {
+        error_name: errorName,
+        error_message: message,
+        elapsed_ms: dt
+      }
     });
   }
 }

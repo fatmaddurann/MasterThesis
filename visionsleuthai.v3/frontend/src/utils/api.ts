@@ -244,8 +244,8 @@ export const sendFrame = async (imageData: string) => {
       method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: imageData }),
-        // 60s timeout is good for the client-side fetch to the proxy
-        signal: AbortSignal.timeout(60000),
+        // 10s timeout to match Vercel's serverless function limit
+        signal: AbortSignal.timeout(10000),
     });
 
     const dt = Date.now() - t0;
