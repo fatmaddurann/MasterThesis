@@ -77,8 +77,8 @@ class DatasetCollector:
             
             # Download image
             if self.download_image(url, str(local_path)):
-                # Upload to GCP
-                gcp_path = f"datasets/{category}/images/{filename}"
+            # Upload to GCP (organized structure)
+            gcp_path = f"data/raw/{category}/images/{filename}"
                 try:
                     self.upload_to_gcp(str(local_path), gcp_path)
                     
@@ -100,7 +100,7 @@ class DatasetCollector:
             json.dump(metadata, f, indent=2)
         
         # Upload metadata to GCP
-        gcp_metadata_path = f"datasets/{category}/metadata.json"
+        gcp_metadata_path = f"data/raw/{category}/metadata.json"
         self.gcp.upload_file(str(metadata_path), gcp_metadata_path)
         
         logger.info(f"Collected {len(metadata)} images for {category}")
@@ -170,7 +170,8 @@ class DatasetCollector:
         for img_path in images:
             # Preserve directory structure
             relative_path = img_path.relative_to(dataset_path)
-            gcp_path = f"datasets/yolo/{relative_path.as_posix()}"
+            # Organize in data/labeled structure
+            gcp_path = f"data/labeled/v1/{relative_path.as_posix()}"
             
             try:
                 self.upload_to_gcp(str(img_path), gcp_path)
@@ -251,3 +252,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
