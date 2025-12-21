@@ -155,16 +155,39 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
 };
 
 export const getAnalysisResults = async (videoId: string): Promise<AnalysisResult> => {
+  // #region agent log
+  const t0 = Date.now();
+  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Entry',data:{videoId,apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
+  // #endregion
   try {
-    const response = await fetch(`${API_BASE_URL}/api/video/analysis/${videoId}`);
+    const endpoint = `${API_BASE_URL}/api/video/analysis/${videoId}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Before fetch',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
+    // #endregion
+    const response = await fetch(endpoint);
+    // #region agent log
+    const dt = Date.now() - t0;
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
+    // #endregion
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to get analysis results');
+      const errorData = await response.json().catch(() => ({}));
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
+      // #endregion
+      throw new Error(errorData.detail || `Failed to get analysis results: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Success',data:{status:result.status,hasSummary:!!result.summary},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
+    // #endregion
+    return result;
   } catch (error) {
+    // #region agent log
+    const dt = Date.now() - t0;
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
+    // #endregion
     console.error('Analysis results error:', error);
     throw error;
   }
@@ -331,6 +354,10 @@ export const generateForensicReport = async (detections: Array<{
   risk_score?: number;
   timestamp?: string;
 }>): Promise<string> => {
+  // #region agent log
+  const t0 = Date.now();
+  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Entry',data:{detectionCount:detections.length,apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
+  // #endregion
   try {
     const normalizedDetections = detections.map(det => ({
       type: det.type || det.label || det.class_name || 'unknown',
@@ -345,22 +372,40 @@ export const generateForensicReport = async (detections: Array<{
       detections: normalizedDetections
     };
 
-    const response = await fetch(`${API_BASE_URL}/api/forensic/generate-report`, {
+    const endpoint = `${API_BASE_URL}/api/forensic/generate-report`;
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Before fetch',data:{endpoint,detectionCount:normalizedDetections.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
+    // #endregion
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(detectionData),
     });
+    // #region agent log
+    const dt = Date.now() - t0;
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
+    // #endregion
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to generate forensic report');
+      const errorData = await response.json().catch(() => ({}));
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
+      // #endregion
+      throw new Error(errorData.detail || `Failed to generate forensic report: ${response.status}`);
     }
 
     const result = await response.json();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Success',data:{reportLength:result.report?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
+    // #endregion
     return result.report;
   } catch (error) {
+    // #region agent log
+    const dt = Date.now() - t0;
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
+    // #endregion
     console.error('Forensic report generation error:', error);
     throw error;
   }
