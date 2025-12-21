@@ -16,36 +16,66 @@ class GCPConnector:
             # Bucket name'i environment variable'dan al veya default kullan
             cls._instance.bucket_name = bucket_name or os.getenv('GCP_BUCKET_NAME', 'crime-detection-data')
             
-            # Credentials path: environment variable, parameter, veya default path
-            creds_path = (
-                credentials_path or 
-                os.getenv('GOOGLE_APPLICATION_CREDENTIALS') or
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
-                           'crime-detection-system-455511-6eb0681355fe.json')
-            )
+            # Credentials: Try multiple methods (priority order)
+            # 1. GCP_SERVICE_ACCOUNT_KEY env var (JSON string for production)
+            # 2. GOOGLE_APPLICATION_CREDENTIALS env var (file path)
+            # 3. credentials_path parameter
+            # 4. Default file path (local development)
             
-            # Check if credentials file exists
-            if not os.path.exists(creds_path):
-                # Try relative path from backend directory
-                backend_dir = os.path.dirname(os.path.dirname(__file__))
-                relative_creds_path = os.path.join(os.path.dirname(os.path.dirname(backend_dir)), 
-                                                  'crime-detection-system-455511-6eb0681355fe.json')
-                if os.path.exists(relative_creds_path):
-                    creds_path = relative_creds_path
-                else:
-                    logger.warning(f"Credentials file not found at {creds_path}. Trying default authentication.")
-                    creds_path = None
+            creds_path = None
+            creds_json = None
+            
+            # Method 1: Check for JSON string in environment variable (for production)
+            gcp_key_json = os.getenv('GCP_SERVICE_ACCOUNT_KEY')
+            if gcp_key_json:
+                try:
+                    # Try to parse as JSON (might be base64 encoded)
+                    import base64
+                    try:
+                        # Try base64 decode first
+                        decoded = base64.b64decode(gcp_key_json)
+                        creds_json = json.loads(decoded.decode('utf-8'))
+                    except:
+                        # If not base64, try direct JSON
+                        creds_json = json.loads(gcp_key_json)
+                    logger.info("GCP credentials found in GCP_SERVICE_ACCOUNT_KEY environment variable")
+                except Exception as e:
+                    logger.warning(f"Failed to parse GCP_SERVICE_ACCOUNT_KEY: {str(e)}")
+            
+            # Method 2: Check for file path in environment variable
+            if not creds_json:
+                creds_path = (
+                    credentials_path or 
+                    os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+                )
+                
+                # Method 3: Try default file path (local development)
+                if not creds_path:
+                    default_paths = [
+                        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
+                        os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '..')
+                    ]
+                    for base_path in default_paths:
+                        test_path = os.path.join(base_path, 'crime-detection-system-455511-6eb0681355fe.json')
+                        if os.path.exists(test_path):
+                            creds_path = test_path
+                            break
             
             try:
-                # Initialize client with credentials if path provided
-                if creds_path and os.path.exists(creds_path):
+                # Initialize client with credentials
+                if creds_json:
+                    # Use JSON credentials directly (production)
+                    cls._instance.client = storage.Client.from_service_account_info(creds_json)
+                    logger.info("GCPConnector initialized with JSON credentials from environment")
+                elif creds_path and os.path.exists(creds_path):
+                    # Use file path (local development)
                     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
                     cls._instance.client = storage.Client.from_service_account_json(creds_path)
-                    logger.info(f"GCPConnector initialized with credentials: {creds_path}")
+                    logger.info(f"GCPConnector initialized with credentials file: {creds_path}")
                 else:
                     # Try default authentication (uses GOOGLE_APPLICATION_CREDENTIALS env var or default credentials)
                     cls._instance.client = storage.Client()
-                    logger.info("GCPConnector initialized with default authentication")
+                    logger.warning("GCPConnector initialized with default authentication (credentials not found)")
                 
                 cls._instance.bucket = cls._instance.client.bucket(cls._instance.bucket_name)
                 logger.info(f"GCPConnector initialized with bucket: {cls._instance.bucket_name}")

@@ -16,9 +16,10 @@ services:
         value: "masterthesis-zk81.onrender.com,visionsleuth-ai-backend.onrender.com"
       - key: PYTHON_VERSION
         value: "3.11.9"
-      # Optional: GCP Configuration (uncomment if using GCP)
-      # - key: GCP_BUCKET_NAME
-      #   value: "your-bucket-name"
-      # - key: GCP_SERVICE_ACCOUNT_KEY
-      #   value: "base64-encoded-service-account-key"
+      # GCP Configuration (for dataset storage)
+      - key: GCP_BUCKET_NAME
+        value: "crime-detection-data"
+      # GCP_SERVICE_ACCOUNT_KEY should be set in Render Dashboard (not in YAML for security)
+      # Get base64 encoded key: cat crime-detection-system-455511-6eb0681355fe.json | base64
+      # Then add as environment variable in Render Dashboard
 
