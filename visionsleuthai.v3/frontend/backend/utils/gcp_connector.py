@@ -72,11 +72,11 @@ class GCPConnector:
                 
                 # Method 4: Try default file path (local development)
                 if not creds_path:
+                    base_path1 = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+                    base_path2 = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '..')
                     default_paths = [
-                        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
-                                   'crime-detection-system-455511-6eb0681355fe.json'),
-                        os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '..', 
-                                   'crime-detection-system-455511-6eb0681355fe.json')
+                        os.path.join(base_path1, 'crime-detection-system-455511-6eb0681355fe.json'),
+                        os.path.join(base_path2, 'crime-detection-system-455511-6eb0681355fe.json')
                     ]
                     for test_path in default_paths:
                         if os.path.exists(test_path):
