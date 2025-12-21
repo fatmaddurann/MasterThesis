@@ -1,6 +1,11 @@
 {
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://masterthesis-zk81.onrender.com",
-    "NEXT_PUBLIC_WS_URL": "wss://masterthesis-zk81.onrender.com/ws"
+    "NEXT_PUBLIC_API_URL": "https://masterthesis-zk8l.onrender.com",
+    "NEXT_PUBLIC_WS_URL": "wss://masterthesis-zk8l.onrender.com/ws"
+  },
+  "functions": {
+    "src/app/api/upload/route.ts": {
+      "maxDuration": 300
+    }
   }
 } 

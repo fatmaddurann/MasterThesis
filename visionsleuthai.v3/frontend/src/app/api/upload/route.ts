@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
+export const maxDuration = 300; // 5 minutes for large file uploads
 
 function agentLog(payload: any) {
   if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_DEBUG_LOGS) return;
