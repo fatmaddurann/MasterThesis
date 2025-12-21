@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering - prevents static optimization
+// This ensures Vercel treats this as a serverless function
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
+
 function agentLog(payload: any) {
   if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_DEBUG_LOGS) return;
   // #region agent log

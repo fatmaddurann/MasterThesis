@@ -141,25 +141,40 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
     // Use Next.js proxy route instead of direct backend call
     const uploadUrl = '/api/upload';
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch',data:{uploadUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch',data:{uploadUrl,windowLocation:typeof window!=='undefined'?window.location.href:'N/A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
     // #endregion
 
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      body: formData,
-      signal: AbortSignal.timeout(300000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        signal: AbortSignal.timeout(300000),
+      });
+    } catch (fetchError) {
+      // #region agent log
+      const dt = Date.now() - t0;
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Fetch exception',data:{name:fetchError instanceof Error?fetchError.name:'Unknown',message:fetchError instanceof Error?fetchError.message:String(fetchError),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+      // #endregion
+      throw fetchError;
+    }
     // #region agent log
     const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch',data:{status:response.status,ok:response.ok,statusText:response.statusText,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
     // #endregion
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      let errorData: any = {};
+      try {
+        const text = await response.text();
+        errorData = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        errorData = { error: `Failed to parse error response: ${response.statusText}` };
+      }
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Response not ok',data:{status:response.status,statusText:response.statusText,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
       // #endregion
-      throw new Error(errorData.error || errorData.detail || `Upload failed with status: ${response.status}`);
+      throw new Error(errorData.error || errorData.detail || `Upload failed with status: ${response.status} ${response.statusText}`);
     }
 
     const result = await response.json();
@@ -170,7 +185,7 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
   } catch (error) {
     // #region agent log
     const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),stack:error instanceof Error?error.stack:'N/A',dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
     // #endregion
     console.error('Upload error:', error);
     throw error;
