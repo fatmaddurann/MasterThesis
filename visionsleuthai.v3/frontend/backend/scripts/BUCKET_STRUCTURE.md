@@ -326,3 +326,4 @@ Bu yapı ile:
 - ✅ Training history takibi
 - ✅ Production deployment kolaylığı
 - ✅ Ölçeklenebilirlik
+

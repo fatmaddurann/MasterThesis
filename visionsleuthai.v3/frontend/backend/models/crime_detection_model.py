@@ -67,8 +67,6 @@ class CrimeDetectionModel:
             'machete': ['machete', 'cleaver', 'chopper']
         }
         
-        # YOLOv8 COCO class names that might indicate weapons (even if not perfect)
-        # Note: Standard YOLOv8 doesn't have weapon classes, but we check for similar objects
         self.weapon_like_objects = [
             'remote', 'cell phone', 'hair drier', 'toothbrush',  # Objects that might be mistaken
             'handbag', 'backpack', 'suitcase',  # Containers that might hold weapons

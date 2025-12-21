@@ -1,10 +1,5 @@
 """
 Integration Example: Adding Forensic Report Generation to Existing Routes
-
-This example shows how to integrate the ForensicReportGenerator into your
-existing API routes WITHOUT modifying any detection logic.
-
-Example: Adding a new endpoint to generate forensic reports from detection results.
 """
 
 from fastapi import APIRouter, Request
@@ -58,8 +53,6 @@ async def generate_forensic_report(request: Request):
         if "timestamp" not in data:
             data["timestamp"] = datetime.utcnow().isoformat()
         
-        # Generate the forensic report
-        # NOTE: This does NOT modify any detection values - only interprets them
         report = report_generator.generate_report(data)
         
         return JSONResponse(
@@ -84,16 +77,10 @@ async def generate_forensic_report(request: Request):
         )
 
 
-# Example: How to add report generation to existing live analysis endpoint
-# (This is just an example - you would add this logic to your existing route)
-
 async def example_add_to_live_analysis(results: Dict[str, Any]) -> Dict[str, Any]:
     """
     Example function showing how to add forensic report generation
     to your existing live analysis results.
-    
-    This function takes the results from video_processor.process_frame()
-    and adds a forensic report WITHOUT modifying the detection values.
     """
     # Your existing detection results (unchanged)
     detections = results.get("detections", [])
@@ -117,15 +104,10 @@ async def example_add_to_live_analysis(results: Dict[str, Any]) -> Dict[str, Any
     return enhanced_results
 
 
-# Example: How to add report generation to video analysis results
-# (This is just an example - you would add this logic to your existing route)
-
 def example_add_to_video_analysis(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Example function showing how to add forensic report generation
     to your existing video analysis results.
-    
-    This function processes all frames and generates a comprehensive report.
     """
     frames = analysis_data.get("frames", [])
     

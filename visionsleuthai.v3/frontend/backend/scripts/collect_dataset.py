@@ -123,8 +123,6 @@ class DatasetCollector:
             
             rf = Roboflow(api_key=api_key)
             
-            # Parse dataset URL (format: workspace/dataset/version)
-            # Example: "knife-detection/knife-detection/1"
             parts = dataset_url.strip('/').split('/')
             if len(parts) >= 2:
                 workspace = parts[0]
@@ -182,13 +180,8 @@ class DatasetCollector:
 
 
 def collect_knife_images_from_sources():
-    """
-    Example: Collect knife images from various sources
-    You can add your own URLs here
-    """
     collector = DatasetCollector()
     
-    # Example URLs (replace with actual image URLs)
     knife_urls = [
         # Add your image URLs here
         # Example:
@@ -207,13 +200,10 @@ def collect_gun_images_from_sources():
     collector = DatasetCollector()
     
     gun_urls = [
-        # Add your gun image URLs here
     ]
     
     if gun_urls:
         collector.collect_from_urls(gun_urls, category="gun")
-    else:
-        logger.warning("No URLs provided. Add image URLs to gun_urls list.")
 
 
 def main():

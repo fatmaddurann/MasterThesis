@@ -10,16 +10,43 @@ class GCPConnector:
     _instance = None
     _bucket = None
 
-    def __new__(cls, bucket_name: str = None):
+    def __new__(cls, bucket_name: str = None, credentials_path: str = None):
         if cls._instance is None:
             cls._instance = super(GCPConnector, cls).__new__(cls)
-            # Bucket name'i environment variable'dan al
-            cls._instance.bucket_name = bucket_name or os.getenv('GCP_BUCKET_NAME')
-            if not cls._instance.bucket_name:
-                raise ValueError("GCP_BUCKET_NAME environment variable is not set")
+            # Bucket name'i environment variable'dan al veya default kullan
+            cls._instance.bucket_name = bucket_name or os.getenv('GCP_BUCKET_NAME', 'crime-detection-data')
+            
+            # Credentials path: environment variable, parameter, veya default path
+            creds_path = (
+                credentials_path or 
+                os.getenv('GOOGLE_APPLICATION_CREDENTIALS') or
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
+                           'crime-detection-system-455511-6eb0681355fe.json')
+            )
+            
+            # Check if credentials file exists
+            if not os.path.exists(creds_path):
+                # Try relative path from backend directory
+                backend_dir = os.path.dirname(os.path.dirname(__file__))
+                relative_creds_path = os.path.join(os.path.dirname(os.path.dirname(backend_dir)), 
+                                                  'crime-detection-system-455511-6eb0681355fe.json')
+                if os.path.exists(relative_creds_path):
+                    creds_path = relative_creds_path
+                else:
+                    logger.warning(f"Credentials file not found at {creds_path}. Trying default authentication.")
+                    creds_path = None
             
             try:
-                cls._instance.client = storage.Client()
+                # Initialize client with credentials if path provided
+                if creds_path and os.path.exists(creds_path):
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
+                    cls._instance.client = storage.Client.from_service_account_json(creds_path)
+                    logger.info(f"GCPConnector initialized with credentials: {creds_path}")
+                else:
+                    # Try default authentication (uses GOOGLE_APPLICATION_CREDENTIALS env var or default credentials)
+                    cls._instance.client = storage.Client()
+                    logger.info("GCPConnector initialized with default authentication")
+                
                 cls._instance.bucket = cls._instance.client.bucket(cls._instance.bucket_name)
                 logger.info(f"GCPConnector initialized with bucket: {cls._instance.bucket_name}")
             except Exception as e:

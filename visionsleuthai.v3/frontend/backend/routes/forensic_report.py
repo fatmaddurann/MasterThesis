@@ -62,8 +62,6 @@ async def generate_forensic_report(request: Request):
         if "timestamp" not in data:
             data["timestamp"] = datetime.utcnow().isoformat()
         
-        # Generate the forensic report
-        # NOTE: This does NOT modify any detection values - only interprets them
         report = report_generator.generate_report(data)
         
         return JSONResponse(
