@@ -70,16 +70,67 @@ Render otomatik olarak redeploy edecek. Veya manuel olarak "Manual Deploy" yapı
 
 ## ☁️ Vercel Deployment (Frontend)
 
-Frontend'de GCP kullanmıyorsanız gerekmez. Eğer kullanıyorsanız:
+Vercel'de secret files özelliği yok, bu yüzden environment variable kullanmanız gerekiyor.
 
-1. **Vercel Dashboard**: https://vercel.com/dashboard
-2. **Project Settings → Environment Variables**
-3. **Add Variable**:
+### Adım 1: Service Account Key'i Base64 Encode Et
 
+```bash
+# Local'de key dosyasını base64 encode et
+cat crime-detection-system-455511-6eb0681355fe.json | base64
 ```
-GCP_SERVICE_ACCOUNT_KEY = <base64-encoded-json-string>
-GCP_BUCKET_NAME = crime-detection-data
+
+Veya Python ile:
+
+```python
+import base64
+
+with open('crime-detection-system-455511-6eb0681355fe.json', 'r') as f:
+    key_data = f.read()
+    encoded = base64.b64encode(key_data.encode('utf-8')).decode('utf-8')
+    print(encoded)
 ```
+
+**Önemli**: Çıktıyı kopyalayın, tek satır olmalı (çok uzun olacak).
+
+### Adım 2: Vercel Dashboard'da Environment Variable Ekle
+
+1. **Vercel Dashboard'a Git**: https://vercel.com/dashboard
+2. **Projenizi Seçin**: `master-thesis-nu` (veya proje adınız)
+3. **Settings → Environment Variables** sekmesine gidin
+4. **Add New Variable** butonuna tıklayın
+
+5. **Environment Variable Ekle**:
+
+   **Variable 1:**
+   ```
+   Name: GCP_SERVICE_ACCOUNT_KEY
+   Value: <base64-encoded-json-string> (yukarıdaki çıktıyı yapıştırın)
+   Environment: Production, Preview, Development (hepsini seçin)
+   ```
+
+   **Variable 2:**
+   ```
+   Name: GCP_BUCKET_NAME
+   Value: crime-detection-data
+   Environment: Production, Preview, Development (hepsini seçin)
+   ```
+
+6. **Save** butonuna tıklayın
+
+### Adım 3: Redeploy
+
+1. **Deployments** sekmesine gidin
+2. **En son deployment'ın yanındaki "..." menüsüne tıklayın**
+3. **Redeploy** seçeneğini seçin
+
+Veya otomatik olarak yeni bir commit push ederseniz otomatik deploy olur.
+
+### Notlar
+
+- **Base64 string çok uzun olacak**: Bu normal, tüm JSON içeriği encode edilmiş
+- **Environment seçimi**: Production, Preview ve Development için ayrı ayrı ekleyebilirsiniz
+- **Güvenlik**: Vercel environment variables şifrelenmiş olarak saklanır
+- **Frontend'de kullanım**: Eğer frontend'de GCP kullanmıyorsanız (sadece backend'de kullanılıyorsa), Vercel'de eklemenize gerek yok
 
 ## 💻 Local Development
 
@@ -154,9 +205,24 @@ GCPConnector initialized with bucket: crime-detection-data
 
 ## 📝 Özet
 
-- ✅ **Local**: Key dosyası otomatik bulunur (git'e eklenmez)
-- ✅ **Production**: Environment variable (`GCP_SERVICE_ACCOUNT_KEY`) kullanılır
+### Render (Backend)
+- ✅ **Secret Files**: `/etc/secrets/` path'inde otomatik bulunur
+- ✅ **Environment Variable**: Alternatif olarak `GCP_SERVICE_ACCOUNT_KEY` kullanılabilir
+- ✅ **Bucket Name**: `GCP_BUCKET_NAME` environment variable
+
+### Vercel (Frontend - Eğer GCP kullanıyorsa)
+- ✅ **Environment Variable**: `GCP_SERVICE_ACCOUNT_KEY` (base64 encoded JSON string)
+- ✅ **Bucket Name**: `GCP_BUCKET_NAME` environment variable
+- ⚠️ **Not**: Frontend'de genellikle GCP kullanılmaz, sadece backend'de kullanılır
+
+### Local Development
+- ✅ **Key dosyası**: Proje root'unda otomatik bulunur (git'e eklenmez)
+- ✅ **Environment Variable**: `GOOGLE_APPLICATION_CREDENTIALS` ile custom path
 - ✅ **Güvenlik**: Key dosyası git'e eklenmez, `.gitignore` ile korunur
-- ✅ **Esneklik**: Hem file path hem de JSON string desteklenir
+
+### Güvenlik
+- ✅ Key dosyası git'e eklenmez
+- ✅ Production'da environment variables şifrelenmiş olarak saklanır
+- ✅ Secret files Render'ın güvenli dosya sistemi üzerinden erişilir
 
 Bu yöntemle hem local hem production'da güvenli bir şekilde GCP bağlantısı yapabilirsiniz!
