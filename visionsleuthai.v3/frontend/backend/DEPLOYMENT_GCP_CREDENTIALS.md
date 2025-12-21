@@ -12,39 +12,53 @@ Production ortamlarında (Render, Vercel) service account key'i environment vari
 
 ## 🚀 Render Deployment
 
-### Adım 1: Service Account Key'i Base64 Encode Et
+Render'da iki yöntem var:
 
-```bash
-# Local'de key dosyasını base64 encode et
-cat crime-detection-system-455511-6eb0681355fe.json | base64
-```
+### Yöntem 1: Secret Files (Önerilen) ✅
 
-Veya Python ile:
-
-```python
-import base64
-import json
-
-with open('crime-detection-system-455511-6eb0681355fe.json', 'r') as f:
-    key_data = f.read()
-    encoded = base64.b64encode(key_data.encode('utf-8')).decode('utf-8')
-    print(encoded)
-```
-
-### Adım 2: Render Dashboard'da Environment Variable Ekle
+Render'ın Secret Files özelliğini kullanarak dosyayı yükleyin:
 
 1. **Render Dashboard'a Git**: https://dashboard.render.com
 2. **Servisinizi Seçin**: `visionsleuthai-backend`
 3. **Environment Tab'ına Git**
-4. **Yeni Environment Variable Ekle**:
+4. **Secret Files Bölümüne Git**
+5. **Secret File Yükle**:
+   - File name: `crime-detection-system-455511-6eb0681355fe.json`
+   - File content: Service account key JSON içeriğini yapıştırın
+6. **Environment Variable Ekle** (opsiyonel, custom path için):
+   ```
+   Key: GCP_SECRET_FILE_NAME
+   Value: crime-detection-system-455511-6eb0681355fe.json
+   ```
+   Veya custom path için:
+   ```
+   Key: RENDER_SECRET_FILE_PATH
+   Value: /etc/secrets
+   ```
+7. **Bucket Name Ekle**:
+   ```
+   Key: GCP_BUCKET_NAME
+   Value: crime-detection-data
+   ```
 
+**Not**: Secret files genellikle `/etc/secrets/` altında mount edilir. Kod otomatik olarak bu path'leri kontrol eder.
+
+### Yöntem 2: Environment Variable (Alternatif)
+
+Eğer secret files kullanmak istemiyorsanız:
+
+1. **Service Account Key'i Base64 Encode Et**:
+```bash
+cat crime-detection-system-455511-6eb0681355fe.json | base64
+```
+
+2. **Render Dashboard'da Environment Variable Ekle**:
 ```
 Key: GCP_SERVICE_ACCOUNT_KEY
 Value: <base64-encoded-json-string>
 ```
 
-5. **Bucket Name Ekle**:
-
+3. **Bucket Name Ekle**:
 ```
 Key: GCP_BUCKET_NAME
 Value: crime-detection-data
@@ -87,9 +101,18 @@ export GCP_BUCKET_NAME="crime-detection-data"
 GCP connector şu sırayla credentials arar:
 
 1. **`GCP_SERVICE_ACCOUNT_KEY`** environment variable (base64 veya JSON string) - **Production için**
-2. **`GOOGLE_APPLICATION_CREDENTIALS`** environment variable (file path) - **Local için**
-3. **Default file path** - Local development için otomatik bulma
-4. **Default authentication** - Son çare (genellikle çalışmaz)
+2. **Render Secret Files** - `/etc/secrets/` veya `RENDER_SECRET_FILE_PATH` - **Render Secret Files için**
+3. **`GOOGLE_APPLICATION_CREDENTIALS`** environment variable (file path) - **Custom path için**
+4. **Default file path** - Local development için otomatik bulma
+5. **Default authentication** - Son çare (genellikle çalışmaz)
+
+### Render Secret Files Path'leri
+
+Kod şu path'leri otomatik kontrol eder:
+- `/etc/secrets/crime-detection-system-455511-6eb0681355fe.json` (default)
+- `/secrets/crime-detection-system-455511-6eb0681355fe.json` (alternative)
+- `RENDER_SECRET_FILE_PATH` environment variable'ındaki path
+- `GCP_SECRET_FILE_NAME` environment variable'ındaki dosya adı
 
 ## ✅ Test Etme
 
@@ -113,9 +136,11 @@ GCPConnector initialized with bucket: crime-detection-data
 
 ### "Credentials not found" Hatası
 
-1. **Environment variable kontrol et**: Render dashboard'da `GCP_SERVICE_ACCOUNT_KEY` var mı?
-2. **Base64 format kontrol et**: Key doğru encode edilmiş mi?
-3. **Bucket name kontrol et**: `GCP_BUCKET_NAME` doğru mu?
+1. **Secret file kontrol et**: Render dashboard'da secret file yüklü mü?
+2. **Secret file path kontrol et**: Render logs'da hangi path'te mount edilmiş?
+3. **Environment variable kontrol et**: `GCP_SECRET_FILE_NAME` veya `RENDER_SECRET_FILE_PATH` doğru mu?
+4. **Alternatif**: `GCP_SERVICE_ACCOUNT_KEY` environment variable'ı var mı?
+5. **Bucket name kontrol et**: `GCP_BUCKET_NAME` doğru mu?
 
 ### "Permission denied" Hatası
 

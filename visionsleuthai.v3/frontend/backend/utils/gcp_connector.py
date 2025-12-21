@@ -18,9 +18,10 @@ class GCPConnector:
             
             # Credentials: Try multiple methods (priority order)
             # 1. GCP_SERVICE_ACCOUNT_KEY env var (JSON string for production)
-            # 2. GOOGLE_APPLICATION_CREDENTIALS env var (file path)
-            # 3. credentials_path parameter
-            # 4. Default file path (local development)
+            # 2. Render secret files path (if secret file is uploaded)
+            # 3. GOOGLE_APPLICATION_CREDENTIALS env var (file path)
+            # 4. credentials_path parameter
+            # 5. Default file path (local development)
             
             creds_path = None
             creds_json = None
@@ -42,21 +43,42 @@ class GCPConnector:
                 except Exception as e:
                     logger.warning(f"Failed to parse GCP_SERVICE_ACCOUNT_KEY: {str(e)}")
             
-            # Method 2: Check for file path in environment variable
+            # Method 2: Check Render secret files (Render mounts secret files at /etc/secrets/)
             if not creds_json:
+                # Render secret files are typically mounted at /etc/secrets/ or specified path
+                render_secret_path = os.getenv('RENDER_SECRET_FILE_PATH', '/etc/secrets')
+                secret_file_name = os.getenv('GCP_SECRET_FILE_NAME', 'crime-detection-system-455511-6eb0681355fe.json')
+                
+                # Try common Render secret file locations
+                render_secret_paths = [
+                    os.path.join(render_secret_path, secret_file_name),  # Custom path or default /etc/secrets/
+                    os.path.join('/etc/secrets', secret_file_name),     # Default Render path
+                    os.path.join('/secrets', secret_file_name),         # Alternative Render path
+                    os.path.join(os.getcwd(), secret_file_name),       # Current directory
+                ]
+                
+                for test_path in render_secret_paths:
+                    if os.path.exists(test_path):
+                        creds_path = test_path
+                        logger.info(f"GCP credentials found in Render secret file: {creds_path}")
+                        break
+            
+            # Method 3: Check for file path in environment variable
+            if not creds_json and not creds_path:
                 creds_path = (
                     credentials_path or 
                     os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
                 )
                 
-                # Method 3: Try default file path (local development)
+                # Method 4: Try default file path (local development)
                 if not creds_path:
                     default_paths = [
                         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 
-                        os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '..')
+                                   'crime-detection-system-455511-6eb0681355fe.json'),
+                        os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '..', 
+                                   'crime-detection-system-455511-6eb0681355fe.json')
                     ]
-                    for base_path in default_paths:
-                        test_path = os.path.join(base_path, 'crime-detection-system-455511-6eb0681355fe.json')
+                    for test_path in default_paths:
                         if os.path.exists(test_path):
                             creds_path = test_path
                             break
