@@ -51,10 +51,12 @@ class CrimeDetectionModel:
         self.model_path = os.getenv("MODEL_PATH", "yolov8n.pt")
         
         # Dangerous object mapping for better crime detection
+        # Updated to match GCP dataset structure (knife, handgun)
         # Expanded to include more variations and YOLOv8 class names
         self.dangerous_objects = {
             'knife': ['knife', 'blade', 'dagger', 'sword', 'cutting', 'sharp'],
-            'gun': ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'handgun', 'revolver', 'shotgun', 'rifle', 'machine gun', 'submachine'],
+            'handgun': ['handgun', 'gun', 'pistol', 'firearm', 'weapon', 'revolver'],  # Updated from 'gun'
+            'gun': ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'handgun', 'revolver', 'shotgun', 'rifle', 'machine gun', 'submachine'],  # Keep for backward compatibility
             'weapon': ['weapon', 'gun', 'knife', 'pistol', 'rifle', 'firearm', 'blade', 'dagger', 'sword', 'handgun', 'revolver'],
             'scissors': ['scissors', 'shears', 'scissor'],
             'bottle': ['bottle', 'glass_bottle', 'broken_bottle', 'wine bottle', 'beer bottle'],
@@ -348,7 +350,7 @@ class CrimeDetectionModel:
     
     def _calculate_risk_level(self, class_name: str, confidence: float) -> str:
         """Calculate risk level based on object type and confidence"""
-        high_risk_objects = ['gun', 'knife', 'weapon', 'pistol', 'rifle', 'firearm', 'machete', 'axe']
+        high_risk_objects = ['handgun', 'gun', 'knife', 'weapon', 'pistol', 'rifle', 'firearm', 'machete', 'axe']  # Added handgun
         medium_risk_objects = ['scissors', 'hammer', 'crowbar', 'baseball_bat', 'bottle']
         
         if class_name in high_risk_objects:

@@ -28,15 +28,14 @@ def create_data_yaml(
         classes: List of class names (default: dangerous objects)
     """
     if classes is None:
+        # Updated classes based on GCP dataset structure
         classes = [
             'knife',           # Primary focus: reduce false positives
-            'gun',
-            'scissors',
-            'baseball_bat',
-            'bottle',
-            'hammer',
+            'handgun',         # Updated from 'gun' to match GCP structure
             'person'           # Keep person for context
         ]
+        # Note: Negative examples (toothbrush, baseball_bat) are handled
+        # with empty label files during training
     
     data_config = {
         'path': str(Path(train_images).parent.absolute()),
