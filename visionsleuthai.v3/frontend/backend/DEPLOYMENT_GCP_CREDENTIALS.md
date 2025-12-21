@@ -226,3 +226,4 @@ GCPConnector initialized with bucket: crime-detection-data
 - ✅ Secret files Render'ın güvenli dosya sistemi üzerinden erişilir
 
 Bu yöntemle hem local hem production'da güvenli bir şekilde GCP bağlantısı yapabilirsiniz!
+

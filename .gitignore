@@ -47,6 +47,8 @@ uploads/
 # Sensitive files
 **/service-account.json
 **/config/service-account.json
+**/*-*-*.json
+crime-detection-system-*.json
 
 # Build outputs
 dist/

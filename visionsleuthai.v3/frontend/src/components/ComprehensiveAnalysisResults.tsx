@@ -85,6 +85,7 @@ interface AnalysisData {
   forensic_metadata?: ForensicMetadata;
   frames?: FrameResult[];
   forensic_analysis?: ForensicAnalysis;
+  forensic_report?: string;  // Add forensic report text
 }
 
 interface ComprehensiveAnalysisResultsProps {
@@ -473,11 +474,22 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
               <button
                 onClick={downloadPDF}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                disabled={!analysisData}
               >
                 <DocumentTextIcon className="w-4 h-4" />
                 <span>Download Forensic Report</span>
               </button>
             </div>
+            
+            {/* Forensic Report Text (if available) */}
+            {analysisData?.forensic_report && (
+              <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Forensic Report</h4>
+                <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono max-h-96 overflow-y-auto">
+                  {analysisData.forensic_report}
+                </pre>
+              </div>
+            )}
           </div>
         )}
       </div>

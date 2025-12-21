@@ -9,6 +9,7 @@ import cv2
 from datetime import datetime
 from models.crime_detection_model import CrimeDetectionModel
 from models.video_processor import VideoProcessor
+from models.forensic_report_generator import ForensicReportGenerator
 from utils.gcp_connector import GCPConnector
 import logging
 import numpy as np
@@ -248,6 +249,34 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
         else:
             logger.warning("GCP not available - results not saved to cloud")
         
+        # Generate forensic report from all detections
+        forensic_report_text = None
+        try:
+            report_generator = ForensicReportGenerator()
+            # Collect all detections from all frames for forensic report
+            all_detections_for_report = []
+            for frame_result in cleaned_results:
+                if isinstance(frame_result, dict) and "detections" in frame_result:
+                    for detection in frame_result["detections"]:
+                        if isinstance(detection, dict):
+                            all_detections_for_report.append({
+                                "label": detection.get("class_name") or detection.get("type", "unknown"),
+                                "confidence": detection.get("confidence", 0.0),
+                                "bbox": detection.get("bbox", [0, 0, 0, 0]),
+                                "risk_level": detection.get("risk_level"),
+                                "risk_score": detection.get("risk_score"),
+                            })
+            
+            if all_detections_for_report:
+                report_data = {
+                    "timestamp": analysis_data["timestamp"],
+                    "detections": all_detections_for_report
+                }
+                forensic_report_text = report_generator.generate_report(report_data)
+                logger.info(f"Forensic report generated: {len(forensic_report_text)} characters")
+        except Exception as e:
+            logger.warning(f"Failed to generate forensic report: {str(e)}")
+        
         # Update task status
         try:
             analysis_tasks[video_id].update({
@@ -258,6 +287,7 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
                 "forensic_metadata": analysis_data["forensic_metadata"],
                 "frames": analysis_data["frames"],
                 "forensic_analysis": analysis_data["forensic_analysis"],
+                "forensic_report": forensic_report_text,  # Add forensic report text
                 "analysis_data": analysis_data  # Store complete analysis data
             })
             logger.info(f"Analysis completed successfully for video {video_id}")
@@ -386,7 +416,7 @@ async def get_analysis_results(video_id: str):
         
         # Return task status and results
         if task["status"] == "completed":
-            return JSONResponse({
+            response_data = {
                 "id": video_id,
                 "status": "completed",
                 "timestamp": task["timestamp"],
@@ -397,8 +427,10 @@ async def get_analysis_results(video_id: str):
                 "forensic_metadata": task.get("forensic_metadata"),
                 "frames": task.get("frames"),
                 "forensic_analysis": task.get("forensic_analysis"),
+                "forensic_report": task.get("forensic_report"),  # Add forensic report
                 "analysis_data": task.get("analysis_data")
-            })
+            }
+            return JSONResponse(response_data)
         elif task["status"] == "processing":
             progress_info = {
                 "id": video_id,

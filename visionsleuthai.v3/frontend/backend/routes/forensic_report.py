@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 report_generator = ForensicReportGenerator()
 
 
+@router.options("/forensic/generate-report")
+async def options_generate_report(request: Request):
+    """Handle CORS preflight requests"""
+    origin = request.headers.get("origin", "*")
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600",
+        },
+        status_code=200
+    )
+
+
 @router.post("/forensic/generate-report")
 async def generate_forensic_report(request: Request):
     """
