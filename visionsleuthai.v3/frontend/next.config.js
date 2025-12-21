@@ -16,26 +16,10 @@ const nextConfig = {
     };
     return config;
   },
-  async rewrites() {
-    return [
-      {
-        source: '/about',
-        destination: '/pages/about',
-      },
-      {
-        source: '/privacy',
-        destination: '/pages/privacy',
-      },
-      {
-        source: '/terms',
-        destination: '/pages/terms',
-      },
-      {
-        source: '/pricing',
-        destination: '/pages/pricing',
-      },
-    ]
-  },
+  // Removed rewrites - App Router handles routes automatically
+  // /about -> /app/about/page.tsx
+  // /privacy -> /app/pages/privacy/page.tsx
+  // /terms -> /app/pages/terms/page.tsx
 }
 
 module.exports = nextConfig 

@@ -16,8 +16,21 @@ function agentLog(payload: any) {
 export async function POST(request: NextRequest) {
   // #region agent log
   const t0 = Date.now();
-  agentLog({location:'api/upload/route.ts:POST',message:'Entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-D'});
+  agentLog({location:'api/upload/route.ts:POST',message:'Entry',data:{url:request.url,method:request.method},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-G'});
   // #endregion
+  
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '3600',
+      },
+    });
+  }
   
   try {
     const formData = await request.formData();

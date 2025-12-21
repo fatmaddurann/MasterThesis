@@ -410,7 +410,8 @@ export const generateForensicReport = async (detections: Array<{
       detections: normalizedDetections
     };
 
-    const endpoint = `${API_BASE_URL}/api/forensic/generate-report`;
+    // Use Next.js proxy route instead of direct backend call
+    const endpoint = '/api/forensic/generate-report';
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Before fetch',data:{endpoint,detectionCount:normalizedDetections.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
     // #endregion
