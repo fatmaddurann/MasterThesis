@@ -131,17 +131,21 @@ function agentLog(payload: any) {
 export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
   // #region agent log
   const t0 = Date.now();
-  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Entry',data:{fileName:file.name,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Entry',data:{fileName:file.name,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
   // #endregion
   try {
     const formData = new FormData();
     // Backend expects the field name 'video'
     formData.append('video', file);
 
-    // Use Next.js proxy route instead of direct backend call
-    const uploadUrl = '/api/upload';
+    // Vercel has 4.5MB body size limit, so for large files (>4MB), upload directly to backend
+    // For smaller files, use proxy route
+    const useDirectBackend = file.size > 4 * 1024 * 1024; // 4MB threshold
+    const uploadUrl = useDirectBackend 
+      ? `${API_BASE_URL}/api/video/upload`
+      : '/api/upload';
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch',data:{uploadUrl,windowLocation:typeof window!=='undefined'?window.location.href:'N/A'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch',data:{uploadUrl,useDirectBackend,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
     // #endregion
 
     let response: Response;
@@ -154,13 +158,13 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
     } catch (fetchError) {
       // #region agent log
       const dt = Date.now() - t0;
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Fetch exception',data:{name:fetchError instanceof Error?fetchError.name:'Unknown',message:fetchError instanceof Error?fetchError.message:String(fetchError),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Fetch exception',data:{name:fetchError instanceof Error?fetchError.name:'Unknown',message:fetchError instanceof Error?fetchError.message:String(fetchError),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
       // #endregion
       throw fetchError;
     }
     // #region agent log
     const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch',data:{status:response.status,ok:response.ok,statusText:response.statusText,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch',data:{status:response.status,ok:response.ok,statusText:response.statusText,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
     // #endregion
 
     if (!response.ok) {
@@ -172,20 +176,20 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
         errorData = { error: `Failed to parse error response: ${response.statusText}` };
       }
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Response not ok',data:{status:response.status,statusText:response.statusText,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Response not ok',data:{status:response.status,statusText:response.statusText,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
       // #endregion
       throw new Error(errorData.error || errorData.detail || `Upload failed with status: ${response.status} ${response.statusText}`);
     }
 
     const result = await response.json();
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Success',data:{status:result.status,id:result.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Success',data:{status:result.status,id:result.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
     // #endregion
     return result;
   } catch (error) {
     // #region agent log
     const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),stack:error instanceof Error?error.stack:'N/A',dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),stack:error instanceof Error?error.stack:'N/A',dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
     // #endregion
     console.error('Upload error:', error);
     throw error;
