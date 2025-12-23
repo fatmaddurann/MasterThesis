@@ -309,7 +309,7 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
         if os.path.exists(video_path):
             os.remove(video_path)
 
-@router.post("/video/upload")
+@router.post("/upload")
 async def upload_video(
     background_tasks: BackgroundTasks,
     video: UploadFile = File(...)
