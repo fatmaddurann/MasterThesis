@@ -100,54 +100,129 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
     if (!analysisData) return;
 
     try {
-      // If forensic_report is available, use it for a more comprehensive PDF
-      if (analysisData.forensic_report) {
-        const jsPDF = (await import('jspdf')).default;
-        const doc = new jsPDF();
-        
-        // Title
-        doc.setFontSize(16);
-        doc.text('Forensic Video Analysis Report', 105, 20, { align: 'center' });
-        
-        // Case Information
+      let reportText = analysisData.forensic_report;
+      
+      // If forensic_report is not available, generate it from detections
+      if (!reportText && analysisData.frames) {
+        try {
+          const { generateForensicReport } = await import('@/utils/api');
+          
+          // Collect all detections from frames
+          const allDetections = analysisData.frames.flatMap(frame => 
+            frame.detections.map(det => ({
+              type: det.class_name || det.type || 'unknown',
+              confidence: det.confidence,
+              bbox: det.bbox || [0, 0, 0, 0],
+              risk_level: det.risk_level,
+              risk_score: det.risk_score,
+              timestamp: analysisData.timestamp,
+            }))
+          );
+          
+          if (allDetections.length > 0) {
+            reportText = await generateForensicReport(allDetections);
+          }
+        } catch (error) {
+          console.warn('Failed to generate forensic report from detections:', error);
+        }
+      }
+      
+      // Create PDF with forensic report
+      const jsPDF = (await import('jspdf')).default;
+      const doc = new jsPDF();
+      
+      // Title
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text('Forensic Video Analysis Report', 105, 25, { align: 'center' });
+      
+      // Case Information Section
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      let y = 40;
+      doc.text('Case Information', 14, y);
+      y += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Case ID: ${analysisData.forensic_metadata?.case_id || analysisData.id}`, 14, y);
+      y += 6;
+      doc.text(`Analysis Date: ${new Date(analysisData.forensic_metadata?.analysis_date || analysisData.timestamp).toLocaleString()}`, 14, y);
+      y += 6;
+      doc.text(`Video Duration: ${analysisData.summary?.duration?.toFixed(2) || 'N/A'}s`, 14, y);
+      y += 6;
+      doc.text(`Total Frames: ${analysisData.summary?.totalFrames || 0}`, 14, y);
+      y += 6;
+      doc.text(`Processed Frames: ${analysisData.summary?.processedFrames || 0}`, 14, y);
+      y += 6;
+      doc.text(`Video Format: ${analysisData.summary?.format || 'N/A'}`, 14, y);
+      if (analysisData.summary?.resolution) {
+        y += 6;
+        doc.text(`Resolution: ${analysisData.summary.resolution}`, 14, y);
+      }
+      y += 10;
+      
+      // Statistics Section
+      const totalDetections = analysisData.frames?.reduce((sum, frame) => sum + frame.detections.length, 0) || 0;
+      const dangerousDetections = analysisData.frames?.reduce((sum, frame) => 
+        sum + frame.detections.filter(det => ['gun', 'knife', 'weapon'].includes(det.class_name)).length, 0
+      ) || 0;
+      const highRiskFrames = analysisData.forensic_analysis?.high_risk_frames || 0;
+      
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Analysis Statistics', 14, y);
+      y += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Total Detections: ${totalDetections}`, 14, y);
+      y += 6;
+      doc.text(`Dangerous Objects: ${dangerousDetections}`, 14, y);
+      y += 6;
+      doc.text(`High Risk Frames: ${highRiskFrames}`, 14, y);
+      y += 6;
+      doc.text(`Evidence Quality: ${analysisData.forensic_analysis?.evidence_quality || 'N/A'}`, 14, y);
+      y += 6;
+      doc.text(`Model Version: ${analysisData.model_performance?.model_version || 'N/A'}`, 14, y);
+      y += 6;
+      doc.text(`Processing Efficiency: ${analysisData.model_performance?.processing_efficiency?.toFixed(1) || 'N/A'}%`, 14, y);
+      y += 10;
+      
+      // Forensic Report Content
+      if (reportText) {
         doc.setFontSize(12);
-        let y = 35;
-        doc.text(`Case ID: ${analysisData.forensic_metadata?.case_id || analysisData.id}`, 14, y);
-        y += 7;
-        doc.text(`Analysis Date: ${new Date(analysisData.forensic_metadata?.analysis_date || analysisData.timestamp).toLocaleString()}`, 14, y);
-        y += 7;
-        doc.text(`Video Duration: ${analysisData.summary?.duration?.toFixed(2) || 'N/A'}s | Frames: ${analysisData.summary?.totalFrames || 0}`, 14, y);
-        y += 10;
+        doc.setFont(undefined, 'bold');
+        doc.text('Forensic Analysis Report', 14, y);
+        y += 8;
         
-        // Forensic Report Content
         doc.setFontSize(10);
-        const lines = doc.splitTextToSize(analysisData.forensic_report, 180);
+        doc.setFont(undefined, 'normal');
+        const lines = doc.splitTextToSize(reportText, 180);
         lines.forEach((line: string) => {
           if (y > 270) {
             doc.addPage();
             y = 20;
           }
           doc.text(line, 14, y);
-          y += 7;
+          y += 6;
         });
-        
-        doc.save(`forensic-video-analysis-${analysisData.id || 'report'}.pdf`);
       } else {
-        // Fallback: Use html2pdf for visual report
-        if (!reportRef.current) return;
-        
-        const html2pdf = (await import('html2pdf.js')).default;
-        const element = reportRef.current;
-        const opt = {
-          margin: 1,
-          filename: `forensic_report_${analysisData?.id || 'analysis'}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        await html2pdf().set(opt).from(element).save();
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'italic');
+        doc.text('Forensic report not available. Please regenerate analysis.', 14, y);
       }
+      
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`Page ${i} of ${pageCount}`, 105, 285, { align: 'center' });
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 285);
+      }
+      
+      doc.save(`forensic-video-analysis-${analysisData.id || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('PDF generation failed:', error);
       alert('Failed to generate PDF report. Please try again.');

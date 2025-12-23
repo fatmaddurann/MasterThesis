@@ -378,24 +378,75 @@ export default function LiveAnalysisPage() {
       
       // Create PDF from the report text
       const doc = new jsPDF();
-      doc.setFontSize(16);
-      doc.text('Forensic Live Analysis Report', 105, 20, { align: 'center' });
+      
+      // Title
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text('Forensic Live Analysis Report', 105, 25, { align: 'center' });
+      
+      // Analysis Information
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      let y = 40;
+      doc.text('Analysis Information', 14, y);
+      y += 8;
+      
       doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Analysis Date: ${new Date().toLocaleString()}`, 14, y);
+      y += 6;
+      doc.text(`Total Detections: ${frameResults.length}`, 14, y);
+      y += 6;
       
-      // Split report into pages
+      // Count dangerous objects
+      const dangerousCount = frameResults.filter(det => 
+        ['gun', 'knife', 'weapon', 'pistol', 'handgun'].includes(det.type.toLowerCase())
+      ).length;
+      if (dangerousCount > 0) {
+        doc.text(`Dangerous Objects Detected: ${dangerousCount}`, 14, y);
+        y += 6;
+      }
+      
+      // Count by risk level
+      const highRisk = frameResults.filter(det => det.risk === 'High').length;
+      const mediumRisk = frameResults.filter(det => det.risk === 'Medium').length;
+      const lowRisk = frameResults.filter(det => det.risk === 'Low').length;
+      
+      if (highRisk > 0 || mediumRisk > 0 || lowRisk > 0) {
+        doc.text(`Risk Distribution:`, 14, y);
+        y += 6;
+        if (highRisk > 0) doc.text(`  - High Risk: ${highRisk}`, 20, y), y += 6;
+        if (mediumRisk > 0) doc.text(`  - Medium Risk: ${mediumRisk}`, 20, y), y += 6;
+        if (lowRisk > 0) doc.text(`  - Low Risk: ${lowRisk}`, 20, y), y += 6;
+      }
+      y += 6;
+      
+      // Forensic Report Content
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('Forensic Analysis Report', 14, y);
+      y += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
       const lines = doc.splitTextToSize(reportText, 180);
-      let y = 35;
-      const pageHeight = 270;
-      const lineHeight = 7;
-      
       lines.forEach((line: string) => {
-        if (y > pageHeight) {
+        if (y > 270) {
           doc.addPage();
           y = 20;
         }
         doc.text(line, 14, y);
-        y += lineHeight;
+        y += 6;
       });
+      
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`Page ${i} of ${pageCount}`, 105, 285, { align: 'center' });
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 285);
+      }
       
       doc.save(`forensic-live-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
