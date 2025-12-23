@@ -1,8 +1,10 @@
 """
 YOLOv8 Custom Training Script for Dangerous Object Detection
 Specifically optimized for knife detection to reduce false positives
+Supports both local dataset and GCP Storage dataset
 """
 import os
+import sys
 from pathlib import Path
 from ultralytics import YOLO
 import yaml
@@ -203,21 +205,80 @@ def main():
     """
     Main training script.
     Adjust paths and parameters as needed.
+    Supports both local dataset and GCP dataset.
     """
-    # Dataset paths (adjust these to your dataset structure)
-    base_dir = Path("data")
-    train_images = base_dir / "train" / "images"
-    val_images = base_dir / "val" / "images"
+    import argparse
     
-    # Create data.yaml if it doesn't exist
-    data_yaml = "data.yaml"
-    if not os.path.exists(data_yaml):
-        logger.info("Creating data.yaml...")
-        create_data_yaml(
-            train_images=str(train_images),
-            val_images=str(val_images),
-            output_path=data_yaml
-        )
+    parser = argparse.ArgumentParser(description='Train YOLOv8 model for dangerous object detection')
+    parser.add_argument('--use-gcp', action='store_true', 
+                       help='Download dataset from GCP Storage before training')
+    parser.add_argument('--gcp-bucket', type=str, default=None,
+                       help='GCP bucket name (default: from GCP_BUCKET_NAME env var)')
+    parser.add_argument('--gcp-dataset-path', type=str, default='data/labeled/v1',
+                       help='GCP path to labeled dataset (default: data/labeled/v1)')
+    parser.add_argument('--local-dataset-path', type=str, default='data',
+                       help='Local dataset path (default: data)')
+    args = parser.parse_args()
+    
+    # If use-gcp flag is set, download dataset from GCP
+    if args.use_gcp:
+        logger.info("=" * 50)
+        logger.info("Downloading dataset from GCP Storage...")
+        logger.info("=" * 50)
+        
+        try:
+            # Import GCP dataset preparer
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from scripts.prepare_gcp_dataset import GCPDatasetPreparer
+            
+            bucket_name = args.gcp_bucket or os.getenv('GCP_BUCKET_NAME', 'crime-detection-data')
+            preparer = GCPDatasetPreparer(bucket_name=bucket_name)
+            
+            # Download labeled dataset from GCP
+            local_dataset_path = args.local_dataset_path
+            gcp_dataset_path = args.gcp_dataset_path
+            
+            logger.info(f"Downloading from GCP: {gcp_dataset_path} -> {local_dataset_path}")
+            preparer.download_from_gcp(gcp_dataset_path, local_dataset_path)
+            
+            # Update paths to use downloaded dataset
+            base_dir = Path(local_dataset_path)
+            train_images = base_dir / "train" / "images"
+            val_images = base_dir / "val" / "images"
+            data_yaml = base_dir / "data.yaml"
+            
+            if not data_yaml.exists():
+                logger.warning(f"data.yaml not found at {data_yaml}. Creating from dataset structure...")
+                create_data_yaml(
+                    train_images=str(train_images),
+                    val_images=str(val_images),
+                    output_path=str(data_yaml)
+                )
+            else:
+                logger.info(f"Using data.yaml from GCP: {data_yaml}")
+            
+            data_yaml = str(data_yaml)
+            
+        except Exception as e:
+            logger.error(f"Failed to download dataset from GCP: {str(e)}")
+            logger.error("Falling back to local dataset...")
+            args.use_gcp = False
+    
+    # If not using GCP or GCP download failed, use local dataset
+    if not args.use_gcp:
+        base_dir = Path(args.local_dataset_path)
+        train_images = base_dir / "train" / "images"
+        val_images = base_dir / "val" / "images"
+        
+        # Create data.yaml if it doesn't exist
+        data_yaml = "data.yaml"
+        if not os.path.exists(data_yaml):
+            logger.info("Creating data.yaml...")
+            create_data_yaml(
+                train_images=str(train_images),
+                val_images=str(val_images),
+                output_path=data_yaml
+            )
     
     # Training parameters
     model_size = 'n'  # Use 'n' for speed, 's' or 'm' for better accuracy
