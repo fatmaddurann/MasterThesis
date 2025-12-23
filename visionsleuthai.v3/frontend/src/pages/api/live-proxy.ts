@@ -50,15 +50,15 @@ export default async function handler(
   agentLog({location:'live-proxy.ts:handler',message:'Proxy entry',data:{backendUrl:BACKEND_URL,bodySize:JSON.stringify(req.body)?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
 
   try {
-    agentLog({location:'live-proxy.ts:handler',message:'Before backend fetch',data:{backendUrl:BACKEND_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
-    // Reduce timeout to 8s to fail fast before Vercel's 10s limit
+    agentLog({location:'live-proxy.ts:handler',message:'Before backend fetch',data:{backendUrl:BACKEND_URL,bodySize:JSON.stringify(req.body)?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
+    // Reduce timeout to 5s to fail fast before Vercel's 10s limit (Vercel free tier has 10s limit)
     const backendRes = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(req.body),
-      signal: AbortSignal.timeout(8000), // 8s timeout (Vercel limit is 10s)
+      signal: AbortSignal.timeout(5000), // 5s timeout (Vercel limit is 10s, we need buffer)
     });
     const dt = Date.now() - t0;
     agentLog({location:'live-proxy.ts:handler',message:'After backend fetch',data:{status:backendRes.status,ok:backendRes.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});

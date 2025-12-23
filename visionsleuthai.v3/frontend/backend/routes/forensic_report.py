@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 report_generator = ForensicReportGenerator()
 
 
-@router.options("/forensic/generate-report")
+@router.options("/generate-report")
 async def options_generate_report(request: Request):
     """Handle CORS preflight requests"""
     origin = request.headers.get("origin", "*")
@@ -33,7 +33,7 @@ async def options_generate_report(request: Request):
     )
 
 
-@router.post("/forensic/generate-report")
+@router.post("/generate-report")
 async def generate_forensic_report(request: Request):
     """
     Generate a professional forensic report from detection results.
