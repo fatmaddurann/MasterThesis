@@ -474,6 +474,7 @@ export default function LiveAnalysisPage() {
               <ForensicAnalysisResults
                 results={frameResults}
                 isAnalyzing={isAnalyzing}
+                onDownloadPDF={handleDownloadPDF}
               />
             </div>
           </div>
