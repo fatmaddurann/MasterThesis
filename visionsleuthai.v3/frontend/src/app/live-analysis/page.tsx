@@ -355,9 +355,54 @@ export default function LiveAnalysisPage() {
     };
   }, []);
 
-  const handleDownloadPDF = () => {
-    // PDF generation logic (isteğe bağlı)
-    alert('PDF generation is not implemented in this demo.');
+  const handleDownloadPDF = async () => {
+    if (frameResults.length === 0) {
+      alert('No analysis results available to download.');
+      return;
+    }
+
+    try {
+      // Prepare detection data for backend forensic report
+      const allDetections = frameResults.flatMap(result => 
+        result.detections.map(det => ({
+          type: det.type,
+          confidence: det.confidence / 100, // Convert to decimal
+          bbox: det.bbox || [0, 0, 0, 0],
+          timestamp: result.timestamp,
+          risk_level: det.risk,
+        }))
+      );
+
+      // Generate professional forensic report from backend
+      const { generateForensicReport } = await import('@/utils/api');
+      const reportText = await generateForensicReport(allDetections);
+      
+      // Create PDF from the report text
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text('Forensic Live Analysis Report', 105, 20, { align: 'center' });
+      doc.setFontSize(10);
+      
+      // Split report into pages
+      const lines = doc.splitTextToSize(reportText, 180);
+      let y = 35;
+      const pageHeight = 270;
+      const lineHeight = 7;
+      
+      lines.forEach((line: string) => {
+        if (y > pageHeight) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(line, 14, y);
+        y += lineHeight;
+      });
+      
+      doc.save(`forensic-live-analysis-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    }
   };
 
   return (

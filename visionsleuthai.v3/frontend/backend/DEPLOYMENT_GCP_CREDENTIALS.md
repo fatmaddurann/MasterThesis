@@ -227,3 +227,4 @@ GCPConnector initialized with bucket: crime-detection-data
 
 Bu yöntemle hem local hem production'da güvenli bir şekilde GCP bağlantısı yapabilirsiniz!
 
+

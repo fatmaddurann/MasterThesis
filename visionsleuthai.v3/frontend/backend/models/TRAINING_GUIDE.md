@@ -206,3 +206,4 @@ print(f"mAP50-95: {metrics.box.map}")
 
 Eğitilmiş model, bıçak tespitinde daha yüksek doğruluk sağlayacak ve yanlış pozitifleri (toothbrush, scissors, baseball bat) filtreleyecektir. Mevcut kod zaten false positive filtreleme içeriyor, bu yüzden custom training ile birlikte çok daha iyi sonuçlar alacaksınız.
 
+

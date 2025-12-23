@@ -97,25 +97,60 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
   const reportRef = useRef<HTMLDivElement>(null);
 
   const downloadPDF = async () => {
-    if (!reportRef.current) return;
+    if (!analysisData) return;
 
     try {
-      // Dynamic import to avoid SSR issues with html2pdf.js
-      const html2pdf = (await import('html2pdf.js')).default;
-      
-      const element = reportRef.current;
-      const opt = {
-        margin: 1,
-        filename: `forensic_report_${analysisData?.id || 'analysis'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-      };
+      // If forensic_report is available, use it for a more comprehensive PDF
+      if (analysisData.forensic_report) {
+        const jsPDF = (await import('jspdf')).default;
+        const doc = new jsPDF();
+        
+        // Title
+        doc.setFontSize(16);
+        doc.text('Forensic Video Analysis Report', 105, 20, { align: 'center' });
+        
+        // Case Information
+        doc.setFontSize(12);
+        let y = 35;
+        doc.text(`Case ID: ${analysisData.forensic_metadata?.case_id || analysisData.id}`, 14, y);
+        y += 7;
+        doc.text(`Analysis Date: ${new Date(analysisData.forensic_metadata?.analysis_date || analysisData.timestamp).toLocaleString()}`, 14, y);
+        y += 7;
+        doc.text(`Video Duration: ${analysisData.summary?.duration?.toFixed(2) || 'N/A'}s | Frames: ${analysisData.summary?.totalFrames || 0}`, 14, y);
+        y += 10;
+        
+        // Forensic Report Content
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(analysisData.forensic_report, 180);
+        lines.forEach((line: string) => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(line, 14, y);
+          y += 7;
+        });
+        
+        doc.save(`forensic-video-analysis-${analysisData.id || 'report'}.pdf`);
+      } else {
+        // Fallback: Use html2pdf for visual report
+        if (!reportRef.current) return;
+        
+        const html2pdf = (await import('html2pdf.js')).default;
+        const element = reportRef.current;
+        const opt = {
+          margin: 1,
+          filename: `forensic_report_${analysisData?.id || 'analysis'}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
 
-      await html2pdf().set(opt).from(element).save();
+        await html2pdf().set(opt).from(element).save();
+      }
     } catch (error) {
       console.error('PDF generation failed:', error);
-      alert('PDF oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.');
+      alert('Failed to generate PDF report. Please try again.');
     }
   };
 

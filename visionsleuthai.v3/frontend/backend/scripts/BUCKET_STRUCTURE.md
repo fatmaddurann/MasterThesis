@@ -327,3 +327,4 @@ Bu yapı ile:
 - ✅ Production deployment kolaylığı
 - ✅ Ölçeklenebilirlik
 
+

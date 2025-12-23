@@ -138,9 +138,9 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
     // Backend expects the field name 'video'
     formData.append('video', file);
 
-    // Vercel has 4.5MB body size limit, so for large files (>4MB), upload directly to backend
-    // For smaller files, use proxy route
-    const useDirectBackend = file.size > 4 * 1024 * 1024; // 4MB threshold
+    // Vercel has 4.5MB body size limit, so always upload directly to backend to avoid size restrictions
+    // This ensures all file sizes work without limitations
+    const useDirectBackend = true; // Always use direct backend upload
     const uploadUrl = useDirectBackend 
       ? `${API_BASE_URL}/api/video/upload`
       : '/api/upload';

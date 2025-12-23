@@ -236,3 +236,4 @@ python -c "from models.train import validate_model; validate_model('runs/detect/
 
 Bu workflow ile GCP'deki dataset'inizi kullanarak custom model eğitebilir ve yanlış pozitifleri önemli ölçüde azaltabilirsiniz!
 
+
