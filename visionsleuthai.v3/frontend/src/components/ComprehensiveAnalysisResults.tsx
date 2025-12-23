@@ -133,18 +133,18 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
       
       // Title
       doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Forensic Video Analysis Report', 105, 25, { align: 'center' });
       
       // Case Information Section
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       let y = 40;
       doc.text('Case Information', 14, y);
       y += 8;
       
       doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text(`Case ID: ${analysisData.forensic_metadata?.case_id || analysisData.id}`, 14, y);
       y += 6;
       doc.text(`Analysis Date: ${new Date(analysisData.forensic_metadata?.analysis_date || analysisData.timestamp).toLocaleString()}`, 14, y);
@@ -170,12 +170,12 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
       const highRiskFrames = analysisData.forensic_analysis?.high_risk_frames || 0;
       
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Analysis Statistics', 14, y);
       y += 8;
       
       doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text(`Total Detections: ${totalDetections}`, 14, y);
       y += 6;
       doc.text(`Dangerous Objects: ${dangerousDetections}`, 14, y);
@@ -192,12 +192,12 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
       // Forensic Report Content
       if (reportText) {
         doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text('Forensic Analysis Report', 14, y);
         y += 8;
         
         doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         const lines = doc.splitTextToSize(reportText, 180);
         lines.forEach((line: string) => {
           if (y > 270) {
@@ -209,7 +209,7 @@ export default function ComprehensiveAnalysisResults({ analysisData }: Comprehen
         });
       } else {
         doc.setFontSize(10);
-        doc.setFont(undefined, 'italic');
+        doc.setFont('helvetica', 'italic');
         doc.text('Forensic report not available. Please regenerate analysis.', 14, y);
       }
       
