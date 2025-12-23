@@ -363,15 +363,14 @@ export default function LiveAnalysisPage() {
 
     try {
       // Prepare detection data for backend forensic report
-      const allDetections = frameResults.flatMap(result => 
-        result.detections.map(det => ({
-          type: det.type,
-          confidence: det.confidence / 100, // Convert to decimal
-          bbox: det.bbox || [0, 0, 0, 0],
-          timestamp: result.timestamp,
-          risk_level: det.risk,
-        }))
-      );
+      // frameResults is DetectionWithTimestamp[], which is already an array of detections
+      const allDetections = frameResults.map(det => ({
+        type: det.type,
+        confidence: typeof det.confidence === 'number' ? det.confidence : det.confidence / 100, // Already decimal or convert from percentage
+        bbox: det.bbox || [0, 0, 0, 0],
+        timestamp: det.timestamp,
+        risk_level: det.risk,
+      }));
 
       // Generate professional forensic report from backend
       const { generateForensicReport } = await import('@/utils/api');
