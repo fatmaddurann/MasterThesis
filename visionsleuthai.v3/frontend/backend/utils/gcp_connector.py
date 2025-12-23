@@ -86,23 +86,40 @@ class GCPConnector:
             try:
                 # Initialize client with credentials
                 if creds_json:
-                    # Use JSON credentials directly (production)
+                    # Use JSON credentials directly (production - Vercel/Render env var)
                     cls._instance.client = storage.Client.from_service_account_info(creds_json)
-                    logger.info("GCPConnector initialized with JSON credentials from environment")
+                    logger.info("GCPConnector initialized with JSON credentials from GCP_SERVICE_ACCOUNT_KEY environment variable")
                 elif creds_path and os.path.exists(creds_path):
-                    # Use file path (local development)
+                    # Use file path (Render secret files or local development)
                     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
                     cls._instance.client = storage.Client.from_service_account_json(creds_path)
-                    logger.info(f"GCPConnector initialized with credentials file: {creds_path}")
+                    # Detect if it's Render secret file
+                    if '/etc/secrets' in creds_path or '/secrets' in creds_path:
+                        logger.info(f"GCPConnector initialized with Render secret file: {creds_path}")
+                    else:
+                        logger.info(f"GCPConnector initialized with credentials file: {creds_path}")
                 else:
                     # Try default authentication (uses GOOGLE_APPLICATION_CREDENTIALS env var or default credentials)
                     cls._instance.client = storage.Client()
                     logger.warning("GCPConnector initialized with default authentication (credentials not found)")
+                    logger.warning("This may fail in production. Please set GCP_SERVICE_ACCOUNT_KEY (Vercel) or upload secret file (Render)")
                 
                 cls._instance.bucket = cls._instance.client.bucket(cls._instance.bucket_name)
                 logger.info(f"GCPConnector initialized with bucket: {cls._instance.bucket_name}")
+                
+                # Test connection by listing bucket (optional, can be disabled for faster startup)
+                try:
+                    # Quick test: try to access bucket metadata
+                    cls._instance.bucket.reload()
+                    logger.info("GCP bucket connection verified successfully")
+                except Exception as test_error:
+                    logger.warning(f"GCP bucket connection test failed (may still work): {str(test_error)}")
+                    
             except Exception as e:
                 logger.error(f"Failed to initialize GCPConnector: {str(e)}")
+                logger.error("Please check:")
+                logger.error("  - Render: Secret file uploaded and GCP_BUCKET_NAME set?")
+                logger.error("  - Vercel: GCP_SERVICE_ACCOUNT_KEY and GCP_BUCKET_NAME environment variables set?")
                 raise
         return cls._instance
 
