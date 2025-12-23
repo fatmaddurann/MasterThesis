@@ -314,6 +314,11 @@ async def upload_video(
     background_tasks: BackgroundTasks,
     video: UploadFile = File(...)
 ):
+    # #region agent log
+    import json
+    with open('/Users/fatma/Desktop/thesis2/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"location":"video_analysis.py:upload_video","message":"Route called","data":{"filename":video.filename if video else None,"content_type":video.content_type if video else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"upload-404-H"})+'\n')
+    # #endregion
     uploads_total.inc()
     t0 = start_timer()
     temp_path = None
@@ -405,7 +410,7 @@ async def upload_video(
             detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@router.get("/video/analysis/{video_id}")
+@router.get("/analysis/{video_id}")
 async def get_analysis_results(video_id: str):
     try:
         # Check if task exists
@@ -471,7 +476,7 @@ async def get_analysis_results(video_id: str):
             detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@router.get("/video/academic-analysis/{video_id}")
+@router.get("/academic-analysis/{video_id}")
 async def get_academic_analysis(video_id: str):
     try:
         # Analiz sonuçlarını veritabanından veya dosya sisteminden al

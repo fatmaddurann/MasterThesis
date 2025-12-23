@@ -44,6 +44,12 @@ app.include_router(video_analysis.router, prefix="/api/video", tags=["video"])
 app.include_router(forensic_report.router, prefix="/api/forensic", tags=["forensic"])
 app.include_router(live_analysis.router, prefix="/api/live", tags=["live"])
 
+# Debug: Log all registered routes
+logger.info("Registered routes:")
+for route in app.routes:
+    if hasattr(route, 'path') and hasattr(route, 'methods'):
+        logger.info(f"  {list(route.methods)} {route.path}")
+
 # Health check endpoint
 @app.get("/")
 async def root():
