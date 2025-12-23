@@ -283,13 +283,10 @@ export async function startLiveAnalysis(): Promise<void> {
 /**
  * Send a frame to the backend for live analysis
  * 
- * UPDATED STRATEGY: DIRECT BACKEND CALL
- * We are bypassing the Next.js proxy (/api/live-proxy) because Vercel's Hobby plan 
- * has a strict 10s timeout for serverless functions. Even with a paid Render backend,
- * network latency + inference time can occasionally exceed 10s, causing 504 Gateway Timeouts
- * from Vercel.
- * 
- * The backend handles CORS correctly now, so we can call it directly.
+ * STRATEGY: DIRECT BACKEND CALL (bypassing Vercel proxy)
+ * Backend is responding quickly (200 OK) but Vercel proxy is timing out (504).
+ * Direct backend call avoids Vercel's 10s serverless function timeout.
+ * Backend CORS is properly configured, so direct calls work.
  */
 export const sendFrame = async (imageData: string) => {
   agentLog({location:'api.ts:sendFrame',message:'sendFrame entry',data:{imageLen:imageData?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
@@ -298,38 +295,37 @@ export const sendFrame = async (imageData: string) => {
       throw new Error('Invalid image data provided');
     }
 
-    // REVERT TO PROXY STRATEGY:
-    // Direct backend calls are failing due to persistent CORS issues and Render deployment lag.
-    // We are reverting to the Next.js Proxy (/api/live-proxy) which guarantees NO CORS errors
-    // since it's a Same-Origin request.
-    // The backend blocking issue (timeout) is resolved by the 'def' change in backend,
-    // so the proxy should now work fast enough to avoid Vercel's 10s timeout.
-    // Add timestamp to bypass caching
-    const endpoint = `/api/live-proxy?t=${Date.now()}`;
+    // DIRECT BACKEND CALL: Bypass Vercel proxy to avoid 504 timeouts
+    // Backend responds quickly (200 OK) but proxy times out
+    const backendUrl = API_BASE_URL;
+    const endpoint = `${backendUrl}/api/live/frame`;
     
     const t0 = Date.now();
-    agentLog({location:'api.ts:sendFrame',message:'Before fetch',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+    agentLog({location:'api.ts:sendFrame',message:'Before fetch',data:{endpoint,useDirectBackend:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
     
     try {
       const response = await fetch(endpoint, {
-      method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageData }),
-        // 10s timeout to match Vercel's serverless function limit
-        signal: AbortSignal.timeout(10000),
-    });
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: imageData }),
+        // 30s timeout for direct backend call (no Vercel limit)
+        signal: AbortSignal.timeout(30000),
+      });
 
-    const dt = Date.now() - t0;
-    agentLog({location:'api.ts:sendFrame',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+      const dt = Date.now() - t0;
+      agentLog({location:'api.ts:sendFrame',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
 
-    if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || errorData.detail || `Error ${response.status}`);
-    }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        agentLog({location:'api.ts:sendFrame',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+        throw new Error(errorData.error || errorData.detail || `Error ${response.status}`);
+      }
 
-    const result = await response.json();
-    agentLog({location:'api.ts:sendFrame',message:'Success',data:{detections:result?.detections?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
-    return result;
+      const result = await response.json();
+      agentLog({location:'api.ts:sendFrame',message:'Success',data:{detections:result?.detections?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
+      return result;
 
     } catch (err: any) {
       agentLog({location:'api.ts:sendFrame',message:'Fetch catch',data:{name:err?.name,message:err?.message,dt_ms:Date.now()-t0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
