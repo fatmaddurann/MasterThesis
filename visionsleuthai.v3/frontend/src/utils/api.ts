@@ -118,21 +118,7 @@ const getWsBase = (): string => {
 
 const API_BASE_URL = getApiBaseUrl();
 
-function agentLog(payload: any) {
-  // Enable in production only if ?agentdebug=1 is in URL
-  if (typeof window === 'undefined') return;
-  const allowProd = new URLSearchParams(window.location.search).get('agentdebug') === '1';
-  if (!allowProd && (process.env.NODE_ENV === 'production' || !!process.env.NEXT_PUBLIC_VERCEL_ENV)) return;
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(()=>{});
-  // #endregion
-}
-
 export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
-  // #region agent log
-  const t0 = Date.now();
-  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Entry',data:{fileName:file.name,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-  // #endregion
   try {
     const formData = new FormData();
     // Backend expects the field name 'video'
@@ -144,34 +130,17 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
     const uploadUrl = useDirectBackend 
       ? `${API_BASE_URL}/api/video/upload`
       : '/api/upload';
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch',data:{uploadUrl,useDirectBackend,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-    // #endregion
 
     let response: Response;
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch call',data:{uploadUrl,method:'POST',fileSize:file.size,fileName:file.name,useDirectBackend},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'cors-500-B'})}).catch(()=>{});
-      // #endregion
       response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
         signal: AbortSignal.timeout(300000),
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch call',data:{status:response.status,statusText:response.statusText,ok:response.ok,url:response.url,headers:Object.fromEntries(response.headers.entries())},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'cors-500-B'})}).catch(()=>{});
-      // #endregion
     } catch (fetchError) {
-      // #region agent log
-      const dt = Date.now() - t0;
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Fetch exception',data:{name:fetchError instanceof Error?fetchError.name:'Unknown',message:fetchError instanceof Error?fetchError.message:String(fetchError),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-      // #endregion
       throw fetchError;
     }
-    // #region agent log
-    const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch',data:{status:response.status,ok:response.ok,statusText:response.statusText,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-    // #endregion
 
     if (!response.ok) {
       let errorData: any = {};
@@ -181,61 +150,30 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
       } catch (parseError) {
         errorData = { error: `Failed to parse error response: ${response.statusText}` };
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Response not ok',data:{status:response.status,statusText:response.statusText,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-      // #endregion
       throw new Error(errorData.error || errorData.detail || `Upload failed with status: ${response.status} ${response.statusText}`);
     }
 
     const result = await response.json();
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Success',data:{status:result.status,id:result.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-    // #endregion
     return result;
   } catch (error) {
-    // #region agent log
-    const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),stack:error instanceof Error?error.stack:'N/A',dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-403-H'})}).catch(()=>{});
-    // #endregion
     console.error('Upload error:', error);
     throw error;
   }
 };
 
 export const getAnalysisResults = async (videoId: string): Promise<AnalysisResult> => {
-  // #region agent log
-  const t0 = Date.now();
-  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Entry',data:{videoId,apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
-  // #endregion
   try {
     const endpoint = `${API_BASE_URL}/api/video/analysis/${videoId}`;
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Before fetch',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
-    // #endregion
     const response = await fetch(endpoint);
-    // #region agent log
-    const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
-    // #endregion
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
-      // #endregion
       throw new Error(errorData.detail || `Failed to get analysis results: ${response.status}`);
     }
 
     const result = await response.json();
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Success',data:{status:result.status,hasSummary:!!result.summary},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
-    // #endregion
     return result;
   } catch (error) {
-    // #region agent log
-    const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
-    // #endregion
     console.error('Analysis results error:', error);
     throw error;
   }
@@ -289,7 +227,6 @@ export async function startLiveAnalysis(): Promise<void> {
  * Backend CORS is properly configured, so direct calls work.
  */
 export const sendFrame = async (imageData: string) => {
-  agentLog({location:'api.ts:sendFrame',message:'sendFrame entry',data:{imageLen:imageData?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
   try {
     if (!imageData || typeof imageData !== 'string') {
       throw new Error('Invalid image data provided');
@@ -299,9 +236,6 @@ export const sendFrame = async (imageData: string) => {
     // Backend responds quickly (200 OK) but proxy times out
     const backendUrl = API_BASE_URL;
     const endpoint = `${backendUrl}/api/live/frame`;
-    
-    const t0 = Date.now();
-    agentLog({location:'api.ts:sendFrame',message:'Before fetch',data:{endpoint,useDirectBackend:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
     
     try {
       const response = await fetch(endpoint, {
@@ -314,21 +248,15 @@ export const sendFrame = async (imageData: string) => {
         signal: AbortSignal.timeout(30000),
       });
 
-      const dt = Date.now() - t0;
-      agentLog({location:'api.ts:sendFrame',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        agentLog({location:'api.ts:sendFrame',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
         throw new Error(errorData.error || errorData.detail || `Error ${response.status}`);
       }
 
       const result = await response.json();
-      agentLog({location:'api.ts:sendFrame',message:'Success',data:{detections:result?.detections?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
       return result;
 
     } catch (err: any) {
-      agentLog({location:'api.ts:sendFrame',message:'Fetch catch',data:{name:err?.name,message:err?.message,dt_ms:Date.now()-t0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-A'});
       throw err;
     }
 
@@ -398,10 +326,6 @@ export const generateForensicReport = async (detections: Array<{
   risk_score?: number;
   timestamp?: string;
 }>): Promise<string> => {
-  // #region agent log
-  const t0 = Date.now();
-  fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Entry',data:{detectionCount:detections.length,apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
-  // #endregion
   try {
     const normalizedDetections = detections.map(det => ({
       type: det.type || det.label || det.class_name || 'unknown',
@@ -418,9 +342,6 @@ export const generateForensicReport = async (detections: Array<{
 
     // Use Next.js proxy route instead of direct backend call
     const endpoint = '/api/forensic/generate-report';
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Before fetch',data:{endpoint,detectionCount:normalizedDetections.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
-    // #endregion
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -428,29 +349,15 @@ export const generateForensicReport = async (detections: Array<{
       },
       body: JSON.stringify(detectionData),
     });
-    // #region agent log
-    const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
-    // #endregion
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Response not ok',data:{status:response.status,errorData},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
-      // #endregion
       throw new Error(errorData.detail || `Failed to generate forensic report: ${response.status}`);
     }
 
     const result = await response.json();
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Success',data:{reportLength:result.report?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
-    // #endregion
     return result.report;
   } catch (error) {
-    // #region agent log
-    const dt = Date.now() - t0;
-    fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:generateForensicReport',message:'Catch',data:{name:error instanceof Error?error.name:'Unknown',message:error instanceof Error?error.message:String(error),dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'report-404-B'})}).catch(()=>{});
-    // #endregion
     console.error('Forensic report generation error:', error);
     throw error;
   }
