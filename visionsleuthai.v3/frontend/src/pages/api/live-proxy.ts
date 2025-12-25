@@ -88,18 +88,15 @@ export default async function handler(
 
   } catch (error: any) {
     const message = error?.message || "Internal server error";
-    const dt = Date.now() - t0;
     const errorName = error?.name || "UnknownError";
-    agentLog({location:'live-proxy.ts:handler',message:'Proxy catch',data:{name:errorName,message,dt_ms:dt,isTimeout:message.includes('timeout')||message.includes('aborted')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'timeout-B'});
     
     // Check if it's a timeout/abort error
     if (errorName === 'AbortError' || message.includes("timeout") || message.includes("aborted")) {
-      console.error(`[Proxy Timeout] Backend request timed out after ${dt}ms. Backend URL: ${BACKEND_URL}`);
+      console.error(`[Proxy Timeout] Backend request timed out. Backend URL: ${BACKEND_URL}`);
       res.status(504).json({
         detections: [],
-        error: `Request timeout after ${Math.round(dt/1000)}s. Backend may be slow or unreachable.`,
+        error: `Request timeout. Backend may be slow or unreachable.`,
         details: {
-          elapsed_ms: dt,
           backend_url: BACKEND_URL,
           error_name: errorName
         }

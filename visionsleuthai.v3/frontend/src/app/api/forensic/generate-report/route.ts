@@ -32,9 +32,6 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    // #region agent log
-    agentLog({location:'api/forensic/generate-report/route.ts:POST',message:'Body parsed',data:{hasDetections:!!body.detections,detectionCount:body.detections?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'forensic-404-F'});
-    // #endregion
 
     if (!body.detections) {
       return NextResponse.json(
