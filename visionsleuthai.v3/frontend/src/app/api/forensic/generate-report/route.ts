@@ -18,11 +18,6 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // #region agent log
-  const t0 = Date.now();
-  agentLog({location:'api/forensic/generate-report/route.ts:POST',message:'Entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'forensic-404-F'});
-  // #endregion
-  
   try {
     const body = await request.json();
 
