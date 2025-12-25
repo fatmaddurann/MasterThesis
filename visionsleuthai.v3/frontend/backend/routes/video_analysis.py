@@ -309,6 +309,21 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
         if os.path.exists(video_path):
             os.remove(video_path)
 
+@router.options("/upload")
+async def options_upload_video():
+    """Handle CORS preflight requests for video upload"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "3600",
+        },
+        status_code=200
+    )
+
+
 @router.post("/upload")
 async def upload_video(
     background_tasks: BackgroundTasks,
@@ -381,12 +396,20 @@ async def upload_video(
             process_time = observe_duration_seconds(t0)
             logger.info(f"Upload completed in {process_time:.2f} seconds")
             
-            return JSONResponse({
-                "status": "success",
-                "id": video_id,
-                "message": "Video upload successful, analysis started",
-                "process_time": process_time
-            })
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "id": video_id,
+                    "message": "Video upload successful, analysis started",
+                    "process_time": process_time
+                },
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                },
+                status_code=200
+            )
                 
         except Exception as e:
             logger.error(f"Error processing video: {str(e)}")
