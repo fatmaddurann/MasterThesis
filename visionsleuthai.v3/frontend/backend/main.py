@@ -1,8 +1,10 @@
 import os
 import logging
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from routes import video_analysis, forensic_report, live_analysis
 
 # Configure logging
@@ -38,6 +40,47 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,
 )
+
+# Global exception handler to add CORS headers to all error responses
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Add CORS headers to HTTPException responses"""
+    return JSONResponse(
+        content={"error": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+        status_code=exc.status_code
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Add CORS headers to validation error responses"""
+    return JSONResponse(
+        content={"error": "Validation error", "details": exc.errors()},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+        status_code=422
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Add CORS headers to all unhandled exception responses"""
+    logger.exception(f"Unhandled exception: {str(exc)}")
+    return JSONResponse(
+        content={"error": f"Internal server error: {str(exc)}"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+        status_code=500
+    )
 
 # Include routers
 app.include_router(video_analysis.router, prefix="/api/video", tags=["video"])
