@@ -52,13 +52,13 @@ def create_data_yaml(
     logger.info(f"Classes: {classes}")
     return output_path
 
-
+    
 def train_yolov8(
     model_size: str = 'n',  # n, s, m, l, x
-    epochs: int = 100,
-    batch_size: int = 16,
-    img_size: int = 640,
-    data_yaml: str = 'data.yaml',
+              epochs: int = 100,
+              batch_size: int = 16,
+              img_size: int = 640,
+              data_yaml: str = 'data.yaml',
     pretrained: bool = True,
     device: str = 'cpu',
     project: str = 'runs/detect',
@@ -322,4 +322,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main() 

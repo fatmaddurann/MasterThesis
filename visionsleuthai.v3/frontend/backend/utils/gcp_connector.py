@@ -100,7 +100,7 @@ class GCPConnector:
                         logger.info(f"GCPConnector initialized with credentials file: {creds_path}")
                 else:
                     # Try default authentication (uses GOOGLE_APPLICATION_CREDENTIALS env var or default credentials)
-                    cls._instance.client = storage.Client()
+                cls._instance.client = storage.Client()
                     logger.warning("GCPConnector initialized with default authentication (credentials not found)")
                     logger.warning("This may fail in production. Please set GCP_SERVICE_ACCOUNT_KEY (Vercel) or upload secret file (Render)")
                 
