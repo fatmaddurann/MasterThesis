@@ -174,6 +174,57 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
                 detected_classes = set(d.get("class_name", "unknown") for d in all_detections)
                 logger.info(f"Detected classes: {', '.join(sorted(detected_classes))}")
         
+        # Calculate risk assessment based on dangerous objects detected
+        # Risk score calculation: based on dangerous object count, confidence, and types
+        overall_risk_score = 0.0
+        overall_risk_level = "LOW"
+        
+        if dangerous_objects_count > 0:
+            # Calculate average confidence of dangerous objects
+            dangerous_detections = [
+                d for d in all_detections 
+                if any(dangerous in d.get("class_name", "").lower() for dangerous in dangerous_object_categories) or
+                   any(dangerous in d.get("original_class", "").lower() for dangerous in dangerous_object_categories)
+            ]
+            
+            if dangerous_detections:
+                avg_dangerous_confidence = sum(d.get("confidence", 0.0) for d in dangerous_detections) / len(dangerous_detections)
+                
+                # High-risk object types (gun, pistol, rifle, firearm, weapon, knife)
+                high_risk_types = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade', 'dagger', 'sword', 'machete']
+                has_high_risk_type = any(
+                    any(high_risk in d.get("class_name", "").lower() for high_risk in high_risk_types) or
+                    any(high_risk in d.get("original_class", "").lower() for high_risk in high_risk_types)
+                    for d in dangerous_detections
+                )
+                
+                # Risk score calculation
+                # Base score from dangerous object count (normalized to 0-1)
+                count_score = min(1.0, dangerous_objects_count / 10.0)  # Max at 10 objects
+                
+                # Confidence score
+                confidence_score = avg_dangerous_confidence
+                
+                # High-risk type multiplier
+                type_multiplier = 1.5 if has_high_risk_type else 1.0
+                
+                # Combined risk score (0-1 scale, then convert to 0-10)
+                overall_risk_score = min(10.0, (count_score * 0.4 + confidence_score * 0.6) * type_multiplier * 10)
+                
+                # Determine risk level
+                if overall_risk_score >= 7.0 or (has_high_risk_type and overall_risk_score >= 5.0):
+                    overall_risk_level = "HIGH"
+                elif overall_risk_score >= 4.0:
+                    overall_risk_level = "MEDIUM"
+                else:
+                    overall_risk_level = "LOW"
+                
+                logger.info(f"Risk assessment: Level={overall_risk_level}, Score={overall_risk_score:.2f}/10, Dangerous objects={dangerous_objects_count}, Avg confidence={avg_dangerous_confidence:.3f}")
+            else:
+                logger.warning("Dangerous objects count > 0 but no dangerous detections found in all_detections")
+        else:
+            logger.info("No dangerous objects detected - risk level: LOW")
+        
         # Adli bilimlere uygun sonuçları hazırla
         try:
             logger.info(f"Creating analysis_data with {len(cleaned_results)} cleaned results")
@@ -201,7 +252,14 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
                 "videoSize": os.path.getsize(video_path),
                 "format": video_format,
                 "resolution": "384x640",
-                "fps": fps
+                "fps": fps,
+                "riskAssessment": {
+                    "overallRisk": {
+                        "level": overall_risk_level,
+                        "score": round(overall_risk_score, 2),
+                        "confidenceInterval": f"{round(avg_confidence * 100, 1)}%"
+                    }
+                }
             }
             
             logger.info("Creating model_performance...")
