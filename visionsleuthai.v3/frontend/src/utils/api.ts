@@ -151,7 +151,7 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
     let response: Response;
     try {
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch call',data:{uploadUrl,method:'POST',fileSize:file.size,fileName:file.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-H'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'Before fetch call',data:{uploadUrl,method:'POST',fileSize:file.size,fileName:file.name,useDirectBackend},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'cors-500-B'})}).catch(()=>{});
       // #endregion
       response = await fetch(uploadUrl, {
         method: 'POST',
@@ -159,7 +159,7 @@ export const uploadVideo = async (file: File): Promise<AnalysisResult> => {
         signal: AbortSignal.timeout(300000),
       });
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch call',data:{status:response.status,statusText:response.statusText,ok:response.ok,url:response.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'upload-404-H'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:uploadVideo',message:'After fetch call',data:{status:response.status,statusText:response.statusText,ok:response.ok,url:response.url,headers:Object.fromEntries(response.headers.entries())},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'cors-500-B'})}).catch(()=>{});
       // #endregion
     } catch (fetchError) {
       // #region agent log

@@ -342,17 +342,40 @@ async def upload_video(
         # Dosya uzantısı kontrolü
         file_ext = os.path.splitext(video.filename)[1].lower()
         if file_ext not in ALLOWED_EXTENSIONS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
+            # #region agent log
+            try:
+                with open('/Users/fatma/Desktop/thesis2/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"location":"video_analysis.py:upload_video","message":"Invalid file type","data":{"file_ext":file_ext,"allowed":list(ALLOWED_EXTENSIONS)},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"cors-500-A"})+'\n')
+            except: pass
+            # #endregion
+            return JSONResponse(
+                content={"error": f"Invalid file type. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"},
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                },
+                status_code=400
             )
 
         # Dosya boyutu kontrolü
         content = await video.read()
-        if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail="File too large. Maximum size is 500MB"
+        file_size = len(content)
+        # #region agent log
+        try:
+            with open('/Users/fatma/Desktop/thesis2/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"location":"video_analysis.py:upload_video","message":"File read","data":{"file_size":file_size,"max_size":MAX_FILE_SIZE},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"cors-500-A"})+'\n')
+        except: pass
+        # #endregion
+        if file_size > MAX_FILE_SIZE:
+            return JSONResponse(
+                content={"error": "File too large. Maximum size is 500MB"},
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                },
+                status_code=413
             )
 
         # Video işleme
@@ -413,24 +436,62 @@ async def upload_video(
                 
         except Exception as e:
             logger.error(f"Error processing video: {str(e)}")
+            # #region agent log
+            try:
+                import traceback
+                with open('/Users/fatma/Desktop/thesis2/.cursor/debug.log', 'a') as f:
+                    f.write(json.dumps({"location":"video_analysis.py:upload_video","message":"Error processing video","data":{"error":str(e),"traceback":traceback.format_exc()[:500]},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"cors-500-A"})+'\n')
+            except: pass
+            # #endregion
             upload_failures_total.inc()
             if temp_path and os.path.exists(temp_path):
                 os.remove(temp_path)
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to process video: {str(e)}"
+            return JSONResponse(
+                content={"error": f"Failed to process video: {str(e)}"},
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                },
+                status_code=500
             )
             
     except HTTPException as he:
-        raise he
+        # #region agent log
+        try:
+            with open('/Users/fatma/Desktop/thesis2/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"location":"video_analysis.py:upload_video","message":"HTTPException","data":{"status_code":he.status_code,"detail":str(he.detail)},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"cors-500-A"})+'\n')
+        except: pass
+        # #endregion
+        return JSONResponse(
+            content={"error": str(he.detail)},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            status_code=he.status_code
+        )
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
+        # #region agent log
+        try:
+            import traceback
+            with open('/Users/fatma/Desktop/thesis2/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({"location":"video_analysis.py:upload_video","message":"Unexpected error","data":{"error":str(e),"traceback":traceback.format_exc()[:500]},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"cors-500-A"})+'\n')
+        except: pass
+        # #endregion
         upload_failures_total.inc()
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
-        raise HTTPException(
-            status_code=500,
-            detail=f"An unexpected error occurred: {str(e)}"
+        return JSONResponse(
+            content={"error": f"An unexpected error occurred: {str(e)}"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            status_code=500
         )
 
 @router.get("/analysis/{video_id}")
