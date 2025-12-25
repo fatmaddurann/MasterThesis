@@ -212,7 +212,10 @@ export const getAnalysisResults = async (videoId: string): Promise<AnalysisResul
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'Before fetch',data:{endpoint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});
     // #endregion
-    const response = await fetch(endpoint);
+    // Increase timeout for large analysis results (especially with large forensic reports)
+    const response = await fetch(endpoint, {
+      signal: AbortSignal.timeout(120000), // 2 minutes timeout for large responses
+    });
     // #region agent log
     const dt = Date.now() - t0;
     fetch('http://127.0.0.1:7243/ingest/fe281e07-c5bd-45a5-a2c9-cda1a466b1c2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:getAnalysisResults',message:'After fetch',data:{status:response.status,ok:response.ok,dt_ms:dt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'video-404-A'})}).catch(()=>{});

@@ -308,6 +308,7 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
             logger.warning("GCP not available - results not saved to cloud")
         
         # Generate forensic report from all detections
+        # Limit detections to prevent huge reports (max 200 detections for report)
         forensic_report_text = None
         try:
             report_generator = ForensicReportGenerator()
@@ -326,12 +327,33 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
                             })
             
             if all_detections_for_report:
+                # Limit detections to prevent huge reports (max 200 for detailed report)
+                MAX_DETECTIONS_FOR_REPORT = 200
+                if len(all_detections_for_report) > MAX_DETECTIONS_FOR_REPORT:
+                    # Sort by confidence (highest first) and take top N
+                    sorted_detections = sorted(
+                        all_detections_for_report, 
+                        key=lambda x: x.get("confidence", 0.0), 
+                        reverse=True
+                    )
+                    all_detections_for_report = sorted_detections[:MAX_DETECTIONS_FOR_REPORT]
+                    logger.info(f"Limited detections for report: {len(all_detections_for_report)}/{len(sorted_detections)} (showing top {MAX_DETECTIONS_FOR_REPORT} by confidence)")
+                
                 report_data = {
                     "timestamp": analysis_data["timestamp"],
                     "detections": all_detections_for_report
                 }
                 forensic_report_text = report_generator.generate_report(report_data)
-                logger.info(f"Forensic report generated: {len(forensic_report_text)} characters")
+                report_size_mb = len(forensic_report_text) / (1024 * 1024)
+                logger.info(f"Forensic report generated: {len(forensic_report_text)} characters ({report_size_mb:.2f} MB)")
+                
+                # If report is still too large (>2MB), truncate it
+                MAX_REPORT_SIZE = 2 * 1024 * 1024  # 2MB
+                if len(forensic_report_text) > MAX_REPORT_SIZE:
+                    logger.warning(f"Forensic report too large ({report_size_mb:.2f} MB), truncating to {MAX_REPORT_SIZE / (1024 * 1024):.2f} MB")
+                    # Keep first 2MB (approximately)
+                    forensic_report_text = forensic_report_text[:MAX_REPORT_SIZE]
+                    forensic_report_text += "\n\n[Report truncated due to size limitations. Full report available in analysis data.]"
         except Exception as e:
             logger.warning(f"Failed to generate forensic report: {str(e)}")
         
