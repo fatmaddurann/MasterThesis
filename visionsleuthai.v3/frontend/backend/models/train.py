@@ -9,16 +9,105 @@ from pathlib import Path
 from ultralytics import YOLO
 import yaml
 import logging
+import glob
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def detect_classes_from_labels(train_images: str, val_images: str) -> list:
+    """
+    Auto-detect class names from YOLO label files.
+    Reads all .txt files in train/labels and val/labels directories,
+    extracts unique class IDs, and maps them to class names based on
+    GCP dataset structure (handgun, knife, dinner_knife, etc.)
+    
+    Args:
+        train_images: Path to training images directory
+        val_images: Path to validation images directory
+    
+    Returns:
+        List of class names sorted alphabetically
+    """
+    try:
+        # Get label directories
+        train_labels = str(Path(train_images).parent / "labels")
+        val_labels = str(Path(val_images).parent / "labels")
+        
+        # Collect all class IDs from label files
+        class_ids = set()
+        
+        # Check train labels
+        if os.path.exists(train_labels):
+            label_files = glob.glob(os.path.join(train_labels, "*.txt"))
+            for label_file in label_files:
+                try:
+                    with open(label_file, 'r') as f:
+                        for line in f:
+                            parts = line.strip().split()
+                            if parts:
+                                class_id = int(parts[0])
+                                class_ids.add(class_id)
+                except Exception as e:
+                    logger.debug(f"Error reading label file {label_file}: {str(e)}")
+        
+        # Check val labels
+        if os.path.exists(val_labels):
+            label_files = glob.glob(os.path.join(val_labels, "*.txt"))
+            for label_file in label_files:
+                try:
+                    with open(label_file, 'r') as f:
+                        for line in f:
+                            parts = line.strip().split()
+                            if parts:
+                                class_id = int(parts[0])
+                                class_ids.add(class_id)
+                except Exception as e:
+                    logger.debug(f"Error reading label file {label_file}: {str(e)}")
+        
+        if not class_ids:
+            logger.warning("No class IDs found in label files")
+            return []
+        
+        # Map class IDs to names based on GCP dataset structure
+        # Common class mappings (can be extended)
+        class_mapping = {
+            0: 'handgun',
+            1: 'knife',
+            2: 'dinner_knife',
+            3: 'person',
+            4: 'scissors',
+            5: 'baseball_bat',
+            6: 'toothbrush',  # negative example
+        }
+        
+        # Build class list based on detected IDs
+        detected_classes = []
+        for class_id in sorted(class_ids):
+            if class_id in class_mapping:
+                detected_classes.append(class_mapping[class_id])
+            else:
+                # Unknown class ID, use generic name
+                detected_classes.append(f"class_{class_id}")
+        
+        # Always include 'person' if not already present (common in crime detection)
+        if 'person' not in detected_classes:
+            detected_classes.append('person')
+        
+        logger.info(f"Auto-detected classes from labels: {detected_classes}")
+        return sorted(detected_classes)
+        
+    except Exception as e:
+        logger.error(f"Error auto-detecting classes: {str(e)}")
+        return []
 
 
 def create_data_yaml(
     train_images: str,
     val_images: str,
     output_path: str = "data.yaml",
-    classes: list = None
+    classes: list = None,
+    auto_detect_classes: bool = True
 ):
     """
     Create YOLOv8 data.yaml configuration file.
@@ -28,14 +117,27 @@ def create_data_yaml(
         val_images: Path to validation images directory
         output_path: Output path for data.yaml
         classes: List of class names (default: dangerous objects)
+        auto_detect_classes: If True, automatically detect classes from label files
     """
     if classes is None:
-        # Updated classes based on GCP dataset structure
-        classes = [
-            'knife',
-            'handgun',
-            'person'
-        ]
+        if auto_detect_classes:
+            # Auto-detect classes from label files
+            classes = detect_classes_from_labels(train_images, val_images)
+            if not classes:
+                # Fallback to default classes
+                logger.warning("Could not auto-detect classes, using defaults")
+                classes = [
+                    'knife',
+                    'handgun',
+                    'person'
+                ]
+        else:
+            # Updated classes based on GCP dataset structure
+            classes = [
+                'knife',
+                'handgun',
+                'person'
+            ]
     
     data_config = {
         'path': str(Path(train_images).parent.absolute()),
@@ -252,7 +354,8 @@ def main():
                 create_data_yaml(
                     train_images=str(train_images),
                     val_images=str(val_images),
-                    output_path=str(data_yaml)
+                    output_path=str(data_yaml),
+                    auto_detect_classes=True  # Auto-detect classes from GCP dataset
                 )
             else:
                 logger.info(f"Using data.yaml from GCP: {data_yaml}")
@@ -277,7 +380,8 @@ def main():
             create_data_yaml(
                 train_images=str(train_images),
                 val_images=str(val_images),
-                output_path=data_yaml
+                output_path=data_yaml,
+                auto_detect_classes=True  # Auto-detect classes from labels
             )
     
     # Training parameters
@@ -319,6 +423,24 @@ def main():
     logger.info("=" * 50)
     logger.info(f"Best model: {best_model_path}")
     logger.info(f"To use the trained model, set MODEL_PATH={best_model_path}")
+    
+    # Optionally upload model to GCP
+    upload_to_gcp = os.getenv("UPLOAD_MODEL_TO_GCP", "false").lower() == "true"
+    if upload_to_gcp and best_model_path.exists():
+        try:
+            from utils.gcp_connector import GCPConnector
+            bucket_name = os.getenv("GCP_BUCKET_NAME", "crime-detection-data")
+            gcp = GCPConnector(bucket_name=bucket_name)
+            
+            # Upload to GCP models directory
+            gcp_model_path = f"models/trained/{Path(best_model_path).parent.parent.name}/{Path(best_model_path).name}"
+            if gcp.upload_model(str(best_model_path), gcp_model_path):
+                logger.info(f"Model uploaded to GCP: {gcp_model_path}")
+                logger.info(f"To use GCP model, set MODEL_PATH=gcp://{gcp_model_path}")
+            else:
+                logger.warning("Failed to upload model to GCP")
+        except Exception as e:
+            logger.warning(f"Failed to upload model to GCP: {str(e)}")
 
 
 if __name__ == '__main__':

@@ -48,7 +48,53 @@ class CrimeDetectionModel:
         except Exception:
             self.temp_scale = 1.0
         # Model path/name - use YOLOv8n for faster inference on CPU (Render free tier)
-        self.model_path = os.getenv("MODEL_PATH", "yolov8n.pt")
+        # Support GCP model path: if MODEL_PATH starts with "gcp://", download from GCP
+        model_path_env = os.getenv("MODEL_PATH", "yolov8n.pt")
+        
+        # Check if model path is GCP path (format: gcp://bucket/path/to/model.pt)
+        if model_path_env.startswith("gcp://"):
+            # Extract GCP path (remove gcp:// prefix)
+            gcp_model_path = model_path_env[6:]  # Remove "gcp://"
+            
+            # Try to download from GCP
+            try:
+                from utils.gcp_connector import GCPConnector
+                bucket_name = os.getenv("GCP_BUCKET_NAME")
+                if bucket_name:
+                    gcp = GCPConnector(bucket_name=bucket_name)
+                    # Use local cache path: models/cached/{model_filename}
+                    model_filename = os.path.basename(gcp_model_path)
+                    local_cache_path = os.path.join(os.path.dirname(__file__), "cached", model_filename)
+                    
+                    # Download if not cached or cache is older than 1 day
+                    should_download = True
+                    if os.path.exists(local_cache_path):
+                        import time
+                        cache_age = time.time() - os.path.getmtime(local_cache_path)
+                        if cache_age < 86400:  # 1 day
+                            should_download = False
+                            logger.info(f"Using cached model from {local_cache_path}")
+                    
+                    if should_download:
+                        os.makedirs(os.path.dirname(local_cache_path), exist_ok=True)
+                        if gcp.download_model(gcp_model_path, local_cache_path):
+                            self.model_path = local_cache_path
+                            logger.info(f"Model downloaded from GCP: {gcp_model_path} -> {local_cache_path}")
+                        else:
+                            # Fallback to default
+                            logger.warning(f"Failed to download model from GCP, using default: yolov8n.pt")
+                            self.model_path = "yolov8n.pt"
+                    else:
+                        self.model_path = local_cache_path
+                else:
+                    logger.warning("GCP_BUCKET_NAME not set, cannot download model from GCP. Using default: yolov8n.pt")
+                    self.model_path = "yolov8n.pt"
+            except Exception as e:
+                logger.warning(f"Failed to download model from GCP: {str(e)}. Using default: yolov8n.pt")
+                self.model_path = "yolov8n.pt"
+        else:
+            # Regular local path or model hub name
+            self.model_path = model_path_env
         
         # Dangerous object mapping for better crime detection
         # Updated to match GCP dataset structure (knife, handgun)

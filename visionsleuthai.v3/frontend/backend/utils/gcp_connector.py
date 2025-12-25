@@ -202,4 +202,49 @@ class GCPConnector:
             
         except Exception as e:
             logger.error(f"Error generating signed URL: {str(e)}")
-            raise Exception(f"Failed to generate signed URL: {str(e)}") 
+            raise Exception(f"Failed to generate signed URL: {str(e)}")
+    
+    def download_model(self, gcp_model_path: str, local_model_path: str) -> bool:
+        """Download trained model from GCP Storage to local path"""
+        try:
+            blob = self.bucket.blob(gcp_model_path)
+            if not blob.exists():
+                logger.warning(f"Model not found at GCP path: {gcp_model_path}")
+                return False
+            
+            # Create local directory if needed
+            os.makedirs(os.path.dirname(local_model_path), exist_ok=True)
+            
+            # Download model
+            blob.download_to_filename(local_model_path)
+            logger.info(f"Model downloaded from GCP: {gcp_model_path} -> {local_model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error downloading model from GCP: {str(e)}")
+            return False
+    
+    def upload_model(self, local_model_path: str, gcp_model_path: str) -> bool:
+        """Upload trained model to GCP Storage"""
+        try:
+            if not os.path.exists(local_model_path):
+                logger.error(f"Local model file not found: {local_model_path}")
+                return False
+            
+            blob = self.bucket.blob(gcp_model_path)
+            blob.upload_from_filename(local_model_path)
+            logger.info(f"Model uploaded to GCP: {local_model_path} -> {gcp_model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error uploading model to GCP: {str(e)}")
+            return False
+    
+    def model_exists(self, gcp_model_path: str) -> bool:
+        """Check if model exists in GCP Storage"""
+        try:
+            blob = self.bucket.blob(gcp_model_path)
+            return blob.exists()
+        except Exception as e:
+            logger.error(f"Error checking model existence: {str(e)}")
+            return False 
