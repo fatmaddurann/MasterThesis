@@ -407,15 +407,52 @@ class CrimeDetectionModel:
                     return dangerous_type
         
         # Check for weapon-like patterns in class name
-        weapon_keywords = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade', 'sword']
+        weapon_keywords = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade', 'sword', 'handgun', 'revolver']
         for keyword in weapon_keywords:
             if keyword in class_name_lower:
-                # Skip if it's a known false positive
+                # Skip if it's a known false positive (only for knife)
                 if class_name_lower in knife_false_positives and keyword == 'knife':
-                    if confidence >= knife_false_positives[class_name_lower]['min_confidence']:
-                        continue
-                logger.debug(f"Found weapon keyword '{keyword}' in {class_name}, mapping to weapon")
-                return 'weapon'
+                    fp_config = knife_false_positives[class_name_lower]
+                    if confidence >= fp_config.get('min_confidence', 0.5):
+                        # Check aspect ratio and size if bbox available
+                        if bbox is not None and len(bbox) >= 4:
+                            width = bbox[2] - bbox[0]
+                            height = bbox[3] - bbox[1]
+                            if width > 0 and height > 0:
+                                aspect_ratio = height / width
+                                min_ar, max_ar = fp_config.get('aspect_ratio_range', (0.0, 10.0))
+                                if min_ar <= aspect_ratio <= max_ar:
+                                    # Matches false positive characteristics, skip
+                                    logger.debug(f"Skipping false positive: {class_name} (confidence: {confidence:.3f}, aspect_ratio: {aspect_ratio:.2f})")
+                                    continue
+                
+                # Map to specific weapon type based on keyword
+                if keyword in ['gun', 'pistol', 'firearm', 'handgun', 'revolver']:
+                    logger.debug(f"Found gun keyword '{keyword}' in {class_name}, mapping to handgun")
+                    return 'handgun'
+                elif keyword in ['knife', 'blade', 'sword']:
+                    logger.debug(f"Found knife keyword '{keyword}' in {class_name}, mapping to knife")
+                    return 'knife'
+                else:
+                    logger.debug(f"Found weapon keyword '{keyword}' in {class_name}, mapping to weapon")
+                    return 'weapon'
+        
+        # SPECIAL CASE: YOLOv8 doesn't have handgun class, but some objects might be handguns
+        # Check for objects that could be mistaken for handguns (cell phone, remote, etc.)
+        # But only if confidence is low (high confidence = probably not a handgun)
+        if confidence < 0.4:  # Low confidence detection
+            handgun_like_objects = ['cell phone', 'remote', 'hair drier']
+            if class_name_lower in handgun_like_objects:
+                # Check aspect ratio - handguns are typically more rectangular
+                if bbox is not None and len(bbox) >= 4:
+                    width = bbox[2] - bbox[0]
+                    height = bbox[3] - bbox[1]
+                    if width > 0 and height > 0:
+                        aspect_ratio = height / width
+                        # Handguns are typically more horizontal (width > height)
+                        if aspect_ratio < 0.8:  # Width is greater than height
+                            logger.debug(f"Low confidence '{class_name}' with handgun-like aspect ratio, checking as potential handgun")
+                            # Don't map directly, but will be checked in process_frame with lower threshold
                     
         # If not a dangerous object, return original class
         return class_name
