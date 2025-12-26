@@ -130,10 +130,10 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
             avg_confidence = sum(d.get("confidence", 0) for d in all_detections) / len(all_detections)
         
         # Count dangerous objects and high risk frames
-        # Comprehensive list of dangerous object categories
+        # Comprehensive list of dangerous object categories (including handgun)
         dangerous_object_categories = [
-            'gun', 'pistol', 'rifle', 'firearm', 'weapon',
-            'knife', 'blade', 'dagger', 'sword', 'machete',
+            'handgun', 'gun', 'pistol', 'rifle', 'firearm', 'weapon', 'revolver',
+            'knife', 'blade', 'dagger', 'sword', 'machete', 'dinner_knife',
             'scissors', 'hammer', 'axe', 'hatchet', 'crowbar',
             'baseball_bat', 'bat', 'club', 'bottle', 'broken_bottle'
         ]
@@ -151,15 +151,25 @@ def process_video(video_id: str, video_path: str, gcp_path: str):
                         confidence = detection.get("confidence", 0.0)
                         
                         # Check both mapped class_name and original_class
+                        # Also check if original_class contains weapon keywords even if not mapped
                         is_dangerous = (
                             any(dangerous in class_name for dangerous in dangerous_object_categories) or
                             any(dangerous in original_class for dangerous in dangerous_object_categories)
                         )
                         
+                        # Additional check: if original class contains weapon keywords, consider it dangerous
+                        if not is_dangerous:
+                            weapon_keywords = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'handgun', 'knife', 'blade']
+                            if any(keyword in original_class for keyword in weapon_keywords):
+                                is_dangerous = True
+                                logger.info(f"Potential weapon detected in original class: {original_class} (mapped: {class_name}, confidence: {confidence:.3f})")
+                        
                         if is_dangerous:
                             dangerous_objects_count += 1
-                            detected_dangerous_types.add(class_name)
-                            logger.info(f"Dangerous object detected: {class_name} (original: {original_class}, confidence: {confidence:.3f})")
+                            # Use mapped class_name if it's a dangerous object, otherwise use original_class
+                            dangerous_type = class_name if class_name in dangerous_object_categories else original_class
+                            detected_dangerous_types.add(dangerous_type)
+                            logger.info(f"Dangerous object detected: {dangerous_type} (mapped: {class_name}, original: {original_class}, confidence: {confidence:.3f})")
                         
                         if detection.get("risk_score", 0) >= 0.8:
                             high_risk_frames_count += 1

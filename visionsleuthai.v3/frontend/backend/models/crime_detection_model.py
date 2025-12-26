@@ -26,10 +26,11 @@ class CrimeDetectionModel:
             base_threshold = 0.25  # Daha düşük threshold ile tüm nesneler algılanır
             logger.info(f"LIVE ANALYSIS MODE: Confidence threshold set to {base_threshold}, no size/distance limits - ALL objects and people will be detected")
         else:
-            # Video upload mod: Lower threshold for better weapon detection
-            # Standard YOLOv8 doesn't detect weapons well, so we lower threshold
-            base_threshold = float(os.getenv("MODEL_CONFIDENCE_THRESHOLD", "0.35"))
-            logger.info(f"VIDEO UPLOAD MODE: Confidence threshold set to {base_threshold} for better dangerous object detection")
+            # Video upload mod: Very low threshold for better weapon detection
+            # Standard YOLOv8 doesn't detect weapons well, so we use very low threshold
+            # We'll filter later based on mapping and class-specific thresholds
+            base_threshold = float(os.getenv("MODEL_CONFIDENCE_THRESHOLD", "0.20"))
+            logger.info(f"VIDEO UPLOAD MODE: Confidence threshold set to {base_threshold} for aggressive dangerous object detection")
         
         # Base threshold
         self.confidence_threshold = base_threshold
@@ -200,26 +201,43 @@ class CrimeDetectionModel:
             # Use half precision (FP16) if available for faster inference
             use_half = self.device.type == 'cuda' and torch.cuda.is_available()
             
+            # CRITICAL: Use very low confidence threshold for video upload mode to catch weapons
+            # YOLOv8 default model doesn't have handgun class, so we need to catch all potential objects
+            # and then map them to dangerous categories
+            inference_conf = self.confidence_threshold
+            if self.mode == "video_upload":
+                # Use very low threshold (0.15) to catch all potential weapons
+                # We'll filter later based on mapping and class-specific thresholds
+                inference_conf = 0.15
+                logger.debug(f"Video upload mode: Using low inference threshold {inference_conf} to catch all potential weapons")
+            
             # Optimize inference settings for dangerous object detection
             # Focus on speed while maintaining accuracy for weapons
             results = self.model(
                 frame,
-                conf=self.confidence_threshold,
+                conf=inference_conf,  # Use low threshold to catch all potential weapons
                 iou=self.iou_threshold,
                 agnostic_nms=self.agnostic_nms,
                 half=use_half,  # Use FP16 on GPU for 2x speedup
                 verbose=False,  # Disable verbose output for speed
-                max_det=100,    # Limit max detections for speed (reduced from 300)
+                max_det=300,    # Increase max detections to catch more potential weapons
                 imgsz=640,      # Fixed input size for consistent speed
             )[0]
 
             detections: List[Dict[str, Any]] = []
             frame_height, frame_width = frame.shape[:2]
             
+            # Log all detected classes for debugging (first frame only)
+            if not hasattr(self, '_logged_classes'):
+                detected_classes = set(results.names[int(cls)] for _, _, _, _, _, cls in results.boxes.data.tolist())
+                logger.info(f"YOLOv8 detected classes in frame: {sorted(detected_classes)}")
+                self._logged_classes = True
+            
             for r in results.boxes.data.tolist():
                 x1, y1, x2, y2, conf, cls = r
                 cls_idx = int(cls)
                 class_name = results.names[cls_idx]
+                original_conf = float(conf)
                 
                 # LIVE MOD: Tüm nesneler algılanacak - boyut/mesafe sınırı YOK
                 if self.mode == "live_analysis":
@@ -231,35 +249,45 @@ class CrimeDetectionModel:
                     pass
                 
                 # Map to dangerous object categories (with false positive filtering)
-                mapped_class = self._map_to_dangerous_object(class_name, float(conf), [float(x1), float(y1), float(x2), float(y2)])
+                mapped_class = self._map_to_dangerous_object(class_name, original_conf, [float(x1), float(y1), float(x2), float(y2)])
                 
-                # LIVE MOD: Per-class threshold kullanma, sadece base threshold
+                # Calibrate confidence
+                calibrated = self._calibrate_conf(original_conf)
+                
+                # Determine threshold based on mode and mapped class
                 if self.mode == "live_analysis":
                     thr = self.confidence_threshold
                 else:
-                    # VIDEO UPLOAD MOD: Lower threshold for dangerous objects
-                    # Use even lower threshold for potentially dangerous objects
-                    if mapped_class in ['gun', 'weapon', 'knife', 'pistol', 'rifle', 'firearm']:
-                        # Very low threshold for weapons (0.25) since YOLOv8 doesn't detect them well
-                        thr = float(self.class_thresholds.get(mapped_class, 0.25))
-                        logger.debug(f"Using lower threshold {thr} for dangerous object: {mapped_class}")
+                    # VIDEO UPLOAD MOD: Aggressive threshold lowering for weapons
+                    # Check if mapped class is a dangerous object
+                    if mapped_class in ['gun', 'weapon', 'knife', 'pistol', 'rifle', 'firearm', 'handgun']:
+                        # Very low threshold for weapons (0.15) since YOLOv8 doesn't detect them well
+                        thr = float(self.class_thresholds.get(mapped_class, 0.15))
+                        logger.debug(f"Using very low threshold {thr} for dangerous object: {mapped_class} (original: {class_name}, conf: {original_conf:.3f})")
                     else:
-                        thr = float(self.class_thresholds.get(mapped_class, self.confidence_threshold))
+                        # Check original class name for weapon keywords (even if not mapped)
+                        class_lower = class_name.lower()
+                        weapon_keywords = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade', 'handgun']
+                        if any(keyword in class_lower for keyword in weapon_keywords):
+                            # Potential weapon detected - use very low threshold
+                            thr = 0.15
+                            logger.debug(f"Potential weapon in original class '{class_name}', using threshold {thr} (conf: {original_conf:.3f})")
+                            # Re-map to weapon category
+                            if 'gun' in class_lower or 'pistol' in class_lower or 'firearm' in class_lower or 'handgun' in class_lower:
+                                mapped_class = 'handgun'
+                            elif 'knife' in class_lower or 'blade' in class_lower:
+                                mapped_class = 'knife'
+                            else:
+                                mapped_class = 'weapon'
+                        else:
+                            # Regular object - use standard threshold
+                            thr = float(self.class_thresholds.get(mapped_class, self.confidence_threshold))
                 
-                calibrated = self._calibrate_conf(float(conf))
-                
-                # For video upload mode, also check original class name for weapon keywords
-                # This helps catch objects that might be weapons but not properly classified
-                if self.mode == "video_upload" and calibrated < thr:
-                    # Check if original class name contains weapon keywords
-                    class_lower = class_name.lower()
-                    weapon_keywords = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade']
-                    if any(keyword in class_lower for keyword in weapon_keywords):
-                        # Use even lower threshold for potential weapons
-                        thr = 0.20
-                        logger.debug(f"Potential weapon detected in {class_name}, using threshold {thr}")
-                
+                # Apply threshold filter
                 if calibrated < thr:
+                    # Log filtered detections for debugging (only for potential weapons)
+                    if self.mode == "video_upload" and any(kw in class_name.lower() for kw in ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade', 'handgun']):
+                        logger.debug(f"Filtered detection: {class_name} (mapped: {mapped_class}, conf: {calibrated:.3f} < {thr:.3f})")
                     continue
                     
                 # Calculate risk level
