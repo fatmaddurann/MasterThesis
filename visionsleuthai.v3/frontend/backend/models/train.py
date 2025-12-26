@@ -424,23 +424,47 @@ def main():
     logger.info(f"Best model: {best_model_path}")
     logger.info(f"To use the trained model, set MODEL_PATH={best_model_path}")
     
-    # Optionally upload model to GCP
-    upload_to_gcp = os.getenv("UPLOAD_MODEL_TO_GCP", "false").lower() == "true"
-    if upload_to_gcp and best_model_path.exists():
+    # Automatically upload model to GCP (if GCP is available)
+    # This makes it easier - model is automatically available after training
+    if best_model_path.exists():
         try:
             from utils.gcp_connector import GCPConnector
             bucket_name = os.getenv("GCP_BUCKET_NAME", "crime-detection-data")
-            gcp = GCPConnector(bucket_name=bucket_name)
             
-            # Upload to GCP models directory
-            gcp_model_path = f"models/trained/{Path(best_model_path).parent.parent.name}/{Path(best_model_path).name}"
-            if gcp.upload_model(str(best_model_path), gcp_model_path):
-                logger.info(f"Model uploaded to GCP: {gcp_model_path}")
-                logger.info(f"To use GCP model, set MODEL_PATH=gcp://{gcp_model_path}")
-            else:
-                logger.warning("Failed to upload model to GCP")
+            # Try to initialize GCP connector
+            try:
+                gcp = GCPConnector(bucket_name=bucket_name)
+                
+                # Generate GCP path from experiment name
+                exp_name = Path(best_model_path).parent.parent.name  # e.g., "knife_detection_v1"
+                gcp_model_path = f"models/trained/{exp_name}/{Path(best_model_path).name}"
+                
+                logger.info("=" * 60)
+                logger.info("Uploading model to GCP Storage...")
+                logger.info(f"  Local: {best_model_path}")
+                logger.info(f"  GCP:   {bucket_name}/{gcp_model_path}")
+                
+                if gcp.upload_model(str(best_model_path), gcp_model_path):
+                    logger.info("=" * 60)
+                    logger.info("✅ Model successfully uploaded to GCP!")
+                    logger.info("=" * 60)
+                    logger.info(f"GCP Path: {gcp_model_path}")
+                    logger.info("")
+                    logger.info("To use this model in Render/Vercel, set:")
+                    logger.info(f"  MODEL_PATH=gcp://{bucket_name}/{gcp_model_path}")
+                    logger.info("")
+                    logger.info("Or use bucket name from env var:")
+                    logger.info(f"  MODEL_PATH=gcp://{gcp_model_path}")
+                    logger.info("=" * 60)
+                else:
+                    logger.warning("⚠️  Failed to upload model to GCP (model will work locally)")
+                    logger.warning(f"   Local model path: {best_model_path}")
+            except Exception as gcp_error:
+                logger.warning(f"⚠️  GCP not available, skipping upload: {str(gcp_error)}")
+                logger.info(f"   Model saved locally at: {best_model_path}")
         except Exception as e:
             logger.warning(f"Failed to upload model to GCP: {str(e)}")
+            logger.info(f"Model saved locally at: {best_model_path}")
 
 
 if __name__ == '__main__':
