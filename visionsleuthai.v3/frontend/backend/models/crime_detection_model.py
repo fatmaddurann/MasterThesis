@@ -52,15 +52,28 @@ class CrimeDetectionModel:
         # Support GCP model path: if MODEL_PATH starts with "gcp://", download from GCP
         model_path_env = os.getenv("MODEL_PATH", "yolov8n.pt")
         
-        # Check if model path is GCP path (format: gcp://bucket/path/to/model.pt)
+        # Check if model path is GCP path (format: gcp://bucket/path/to/model.pt or gcp://path/to/model.pt)
         if model_path_env.startswith("gcp://"):
             # Extract GCP path (remove gcp:// prefix)
-            gcp_model_path = model_path_env[6:]  # Remove "gcp://"
+            gcp_path_without_prefix = model_path_env[6:]  # Remove "gcp://"
+            
+            # Parse bucket name and model path
+            # Format 1: gcp://bucket-name/path/to/model.pt
+            # Format 2: gcp://path/to/model.pt (uses GCP_BUCKET_NAME env var)
+            parts = gcp_path_without_prefix.split('/', 1)
+            if len(parts) == 2:
+                # Format 1: bucket name in path
+                bucket_name_from_path = parts[0]
+                gcp_model_path = parts[1]
+            else:
+                # Format 2: use GCP_BUCKET_NAME env var
+                bucket_name_from_path = None
+                gcp_model_path = gcp_path_without_prefix
             
             # Try to download from GCP
             try:
                 from utils.gcp_connector import GCPConnector
-                bucket_name = os.getenv("GCP_BUCKET_NAME")
+                bucket_name = bucket_name_from_path or os.getenv("GCP_BUCKET_NAME")
                 if bucket_name:
                     gcp = GCPConnector(bucket_name=bucket_name)
                     # Use local cache path: models/cached/{model_filename}
@@ -83,7 +96,7 @@ class CrimeDetectionModel:
                             logger.info(f"Model downloaded from GCP: {gcp_model_path} -> {local_cache_path}")
                         else:
                             # Fallback to default
-                            logger.warning(f"Failed to download model from GCP, using default: yolov8n.pt")
+                            logger.warning(f"Model not found at GCP path: {bucket_name}/{gcp_model_path}, using default: yolov8n.pt")
                             self.model_path = "yolov8n.pt"
                     else:
                         self.model_path = local_cache_path
