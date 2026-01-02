@@ -198,51 +198,36 @@ class VideoProcessor:
         ]
         
         # Eğer person ve tehlikeli nesne birlikte varsa
-        # MESAFE SINIRI YOK - Herhangi bir mesafe sınırı olmadan tüm tehlikeli nesneler person güvenini düşürür
         if persons and dangerous_objects:
-            # Person ve tehlikeli nesneler arası mesafe hesapla (sadece en yakın nesneyi bulmak için)
             for person in persons:
                 person_bbox = person.get("bbox", [0, 0, 0, 0])
-                person_center_x = (person_bbox[0] + person_bbox[2]) / 2
-                person_center_y = (person_bbox[1] + person_bbox[3]) / 2
                 
-                # En yakın tehlikeli nesneyi bul (mesafe sınırı olmadan)
-                closest_danger = None
-                min_distance = float('inf')
-                
+                # Check for overlap or extreme proximity
                 for danger_obj in dangerous_objects:
                     danger_bbox = danger_obj.get("bbox", [0, 0, 0, 0])
-                    danger_center_x = (danger_bbox[0] + danger_bbox[2]) / 2
-                    danger_center_y = (danger_bbox[1] + danger_bbox[3]) / 2
                     
-                    # Mesafe hesapla (piksel cinsinden) - sadece en yakın nesneyi bulmak için
-                    distance = ((person_center_x - danger_center_x)**2 + (person_center_y - danger_center_y)**2)**0.5
+                    # Calculate IoU-like overlap or distance between centers
+                    iou = _iou(person_bbox, danger_bbox)
                     
-                    if distance < min_distance:
-                        min_distance = distance
-                        closest_danger = danger_obj
-                
-                # En yakın tehlikeli nesne bulunduysa güveni düşür (MESAFE SINIRI YOK)
-                if closest_danger:
-                    danger_class = closest_danger.get("class_name", "").lower()
-                    original_conf = person.get("confidence", 0.0)
-                    
-                    # Risk oranı belirleme
-                    if danger_class in high_risk_objects:
-                        risk_ratio = 0.5  # %50 düşüş
-                    elif danger_class in medium_risk_objects:
-                        risk_ratio = 0.3  # %30 düşüş
-                    elif danger_class in low_risk_objects:
-                        risk_ratio = 0.15  # %15 düşüş
-                    else:
-                        risk_ratio = 0.1  # Varsayılan %10 düşüş
-                    
-                    # Güveni düşür: person_güveni = mevcut_güven × (1 - risk_oranı)
-                    adjusted_conf = original_conf * (1 - risk_ratio)
-                    person["confidence"] = max(0.0, adjusted_conf)
-                    person["risk_adjusted"] = True
-                    person["risk_reason"] = f"Holding/near {danger_class}"
-                    person["security_score"] = adjusted_conf  # Güven puanı olarak ekle
+                    # If person is holding or very close to the object (overlap > 0 or distance is small)
+                    if iou > 0:
+                        danger_class = danger_obj.get("class_name", "").lower()
+                        original_conf = person.get("confidence", 0.0)
+                        
+                        # Risk increase for the whole frame / person
+                        risk_ratio = 0.6 if danger_class in high_risk_objects else 0.3
+                        
+                        # Boost detection confidence for the dangerous object if it's within a person box
+                        danger_obj["confidence"] = min(0.99, danger_obj["confidence"] * 1.2)
+                        
+                        # Lower security score (confidence) for the person
+                        adjusted_conf = original_conf * (1 - risk_ratio)
+                        person["confidence"] = max(0.0, adjusted_conf)
+                        person["risk_adjusted"] = True
+                        person["risk_reason"] = f"Suspected interaction with {danger_class}"
+                        person["security_score"] = adjusted_conf
+        
+        return detections
         
         return detections
 

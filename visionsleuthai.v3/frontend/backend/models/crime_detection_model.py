@@ -53,12 +53,12 @@ class CrimeDetectionModel:
         # Dangerous object mapping for better crime detection
         # Expanded to include more variations and YOLOv8 class names
         self.dangerous_objects = {
-            'knife': ['knife', 'blade', 'dagger', 'sword', 'cutting', 'sharp'],
-            'gun': ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'handgun', 'revolver', 'shotgun', 'rifle', 'machine gun', 'submachine'],
-            'weapon': ['weapon', 'gun', 'knife', 'pistol', 'rifle', 'firearm', 'blade', 'dagger', 'sword', 'handgun', 'revolver'],
+            'knife': ['knife', 'blade', 'dagger', 'sword', 'cutting', 'sharp', 'razor'],
+            'gun': ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'handgun', 'revolver', 'shotgun', 'rifle', 'machine gun', 'submachine', 'glock', 'beretta'],
+            'weapon': ['weapon', 'gun', 'knife', 'pistol', 'rifle', 'firearm', 'blade', 'dagger', 'sword', 'handgun', 'revolver', 'stick', 'pipe'],
             'scissors': ['scissors', 'shears', 'scissor'],
             'bottle': ['bottle', 'glass_bottle', 'broken_bottle', 'wine bottle', 'beer bottle'],
-            'hammer': ['hammer', 'mallet', 'sledgehammer'],
+            'hammer': ['hammer', 'mallet', 'sledgehammer', 'tool'],
             'crowbar': ['crowbar', 'pry_bar', 'prybar', 'wrecking bar'],
             'baseball_bat': ['baseball_bat', 'bat', 'club', 'baseball bat', 'cricket bat'],
             'axe': ['axe', 'hatchet', 'tomahawk'],
@@ -68,19 +68,46 @@ class CrimeDetectionModel:
         # YOLOv8 COCO class names that might indicate weapons (even if not perfect)
         # Note: Standard YOLOv8 doesn't have weapon classes, but we check for similar objects
         self.weapon_like_objects = [
-            'remote', 'cell phone', 'hair drier', 'toothbrush',  # Objects that might be mistaken
-            'handbag', 'backpack', 'suitcase',  # Containers that might hold weapons
+            'remote', 'cell phone', 'hair drier', 'toothbrush', 'umbrella', 'wine glass', 'cup'
         ]
         # NMS / inference options
         try:
-            self.iou_threshold = float(os.getenv("NMS_IOU_THRESHOLD", "0.45"))
+            self.iou_threshold = float(os.getenv("NMS_IOU_THRESHOLD", "0.40")) # Slightly lower for overlapping objects
         except Exception:
-            self.iou_threshold = 0.45
+            self.iou_threshold = 0.40
         self.agnostic_nms = os.getenv("NMS_CLASS_AGNOSTIC", "false").lower() == "true"
 
     def load_model(self) -> Dict[str, Any]:
-        """Load the YOLOv8 model from local path or model hub name with optimizations"""
+        """Load the YOLOv8 model from local path, model hub name, or GCP bucket with optimizations"""
         try:
+            # Handle GCP path if provided (Format: gcp://bucket-name/path/to/model.pt)
+            if self.model_path.startswith("gcp://"):
+                try:
+                    import re
+                    from utils.gcp_connector import GCPConnector
+                    
+                    # Parse gcp://bucket/blob
+                    match = re.match(r"gcp://([^/]+)/(.+)", self.model_path)
+                    if not match:
+                        raise ValueError(f"Invalid GCP path format: {self.model_path}")
+                    
+                    bucket_name, blob_path = match.groups()
+                    local_model_dir = os.path.join(os.path.dirname(__file__), 'temp_models')
+                    os.makedirs(local_model_dir, exist_ok=True)
+                    local_model_path = os.path.join(local_model_dir, os.path.basename(blob_path))
+                    
+                    # Download only if it doesn't exist
+                    if not os.path.exists(local_model_path):
+                        logger.info(f"Downloading model from GCP: {self.model_path} -> {local_model_path}")
+                        gcp = GCPConnector(bucket_name=bucket_name)
+                        gcp.download_file(blob_path, local_model_path)
+                    
+                    # Update model_path to local for YOLO loading
+                    self.model_path = local_model_path
+                except Exception as gcp_err:
+                    logger.error(f"GCP model download failed: {str(gcp_err)}. Falling back to default.")
+                    self.model_path = "yolov8n.pt"
+
             self.model = YOLO(self.model_path)
             
             # Optimize model for inference speed
@@ -160,10 +187,10 @@ class CrimeDetectionModel:
                 frame,
                 conf=self.confidence_threshold,
                 iou=self.iou_threshold,
-                agnostic_nms=self.agnostic_nms,
+                agnostic_nms=True, # Improved: use agnostic NMS to avoid overlapping class suppression
                 half=use_half,  # Use FP16 on GPU for 2x speedup
                 verbose=False,  # Disable verbose output for speed
-                max_det=100,    # Limit max detections for speed (reduced from 300)
+                max_det=50,    # Improved: lower max detections for faster processing
                 imgsz=640,      # Fixed input size for consistent speed
             )[0]
 
