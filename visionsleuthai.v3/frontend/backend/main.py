@@ -39,6 +39,49 @@ app.add_middleware(
     max_age=3600,
 )
 
+import json
+import time
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    t0 = time.time()
+    path = request.url.path
+    method = request.method
+    
+    # #region agent log
+    try:
+        with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({
+                "location": "main.py:middleware",
+                "message": f"Incoming request: {method} {path}",
+                "timestamp": int(time.time()*1000),
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A/B"
+            }) + "\n")
+    except: pass
+    # #endregion
+
+    response = await call_next(request)
+    
+    duration = time.time() - t0
+    # #region agent log
+    try:
+        with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({
+                "location": "main.py:middleware",
+                "message": f"Request finished: {method} {path}",
+                "data": {"status": response.status_code, "duration_ms": duration*1000},
+                "timestamp": int(time.time()*1000),
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A/B/C"
+            }) + "\n")
+    except: pass
+    # #endregion
+    
+    return response
+
 # Include routers
 app.include_router(video_analysis.router, prefix="/api/video", tags=["video"])
 app.include_router(forensic_report.router, prefix="/api/forensic", tags=["forensic"])

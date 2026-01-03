@@ -183,6 +183,10 @@ def live_analysis_frame(input_data: FrameInput):
         try:
             # #region agent log
             t_proc = time.time()
+            try:
+                with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"live_analysis.py:live_analysis_frame","message":"Starting process_frame","timestamp":int(time.time()*1000)}) + "\n")
+            except: pass
             # #endregion
             results = video_processor.process_frame(frame)
             # #region agent log
@@ -190,7 +194,7 @@ def live_analysis_frame(input_data: FrameInput):
             dt_total = time.time() - t0
             try:
                 with open("/Users/fatma/Desktop/thesis2/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"timeout-C","location":"live_analysis.py:live_analysis_frame","message":"After processing","data":{"proc_ms":dt_proc*1000,"total_ms":dt_total*1000,"detections":len(results.get("detections",[]))},"timestamp":int(time.time()*1000)}) + "\n")
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"live_analysis.py:live_analysis_frame","message":"After processing","data":{"proc_ms":dt_proc*1000,"total_ms":dt_total*1000,"detections":len(results.get("detections",[]))},"timestamp":int(time.time()*1000)}) + "\n")
             except: pass
             # #endregion
             
