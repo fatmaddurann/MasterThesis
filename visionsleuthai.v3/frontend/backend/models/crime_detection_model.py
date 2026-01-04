@@ -47,8 +47,24 @@ class CrimeDetectionModel:
             self.temp_scale = float(os.getenv("CONFIDENCE_TEMP_SCALE", "1.0"))
         except Exception:
             self.temp_scale = 1.0
-        # Model path/name - use YOLOv8n for faster inference on CPU (Render free tier)
-        self.model_path = os.getenv("MODEL_PATH", "yolov8n.pt")
+        # Model path/name
+        self.model_path = os.getenv("MODEL_PATH", "yolo11n.pt")
+        
+        # Versiyon Tespiti
+        path_lower = self.model_path.lower()
+        self.is_legacy_model = "yolov3" in path_lower
+        self.is_yolo11 = "yolo11" in path_lower
+        
+        if self.is_yolo11:
+            logger.info(f"LATEST MODE: Loading {self.model_path} (YOLO11 Architecture)")
+            # YOLO11 daha hassas olduğu için threshold'u biraz daha yukarıda tutabiliriz
+            self.confidence_threshold = float(os.getenv("MODEL_CONFIDENCE_THRESHOLD", "0.28"))
+        elif self.is_legacy_model:
+            logger.info(f"LEGACY MODE: Loading {self.model_path} (Darknet weights compatible)")
+            self.confidence_threshold = 0.20
+        else:
+            logger.info(f"MODERN MODE: Loading {self.model_path} (YOLOv8 architecture)")
+            self.confidence_threshold = base_threshold
         
         # Dangerous object mapping for better crime detection
         # Expanded to include more variations and YOLOv8 class names
@@ -394,10 +410,14 @@ class CrimeDetectionModel:
             return "Low"
     
     def get_model_info(self) -> Dict[str, Any]:
+        model_ver = "YOLOv8x"
+        if self.is_yolo11: model_ver = "YOLO11 (Latest)"
+        elif self.is_legacy_model: model_ver = "YOLOv3 (Legacy)"
+        
         return {
             "status": "loaded" if self.model is not None else "not_loaded",
             "device": str(self.device),
             "confidence_threshold": self.confidence_threshold,
-            "model_type": "YOLOv8x",
+            "model_type": model_ver,
             "dangerous_objects": list(self.dangerous_objects.keys())
         }
