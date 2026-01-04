@@ -16,18 +16,14 @@ def _iou(box_a: List[float], box_b: List[float]) -> float:
     return inter / denom if denom > 0 else 0.0
 
 
+from models.threat_analyzer import ThreatAnalyzer
+
 class VideoProcessor:
     def __init__(self, model, mode: str = "video_upload"):
-        """
-        Initialize VideoProcessor with mode parameter.
-        
-        Args:
-            model: CrimeDetectionModel instance
-            mode: "video_upload" (default, no changes) or "live_analysis" (all improvements active)
-        """
         self.model = model
         self.mode = mode
-        self.previous_detections: List[Dict[str, Any]] = []
+        self.threat_analyzer = ThreatAnalyzer(iou_threshold=0.15)
+        # ... (diğer init kodları aynı kalacak)
         # EMA katsayısı env'den konfigüre edilebilir
         try:
             self.smoothing_alpha = float(os.getenv("SMOOTHING_ALPHA", "0.6"))
@@ -109,10 +105,10 @@ class VideoProcessor:
         return max(0.0, min(1.0, raw_score))
 
     def process_frame(self, frame: np.ndarray) -> Dict[str, Any]:
-        # Model çerçeve işleme - ARTIK TRACKING MODEL İÇİNDE YAPILIYOR
+        # Model çerçeve işleme - ByteTrack ile track_id dahil gelir
         detections, _annotated = self.model.process_frame(frame)
 
-        # Risk skoru hesapla ve etiketle
+        # Temel zenginleştirme (Risk skoru hesaplama)
         enriched: List[Dict[str, Any]] = []
         for det in detections:
             if isinstance(det, dict):
@@ -123,104 +119,33 @@ class VideoProcessor:
                     "confidence": float(det.get("confidence", 0.0)),
                     "bbox": det.get("bbox", [0.0, 0.0, 0.0, 0.0]),
                     "risk_score": risk,
-                    "track_id": det.get("track_id", 0) # Modelden gelen ID'yi kullan
+                    "track_id": det.get("track_id", 0)
                 }
                 enriched.append(det_out)
-            else:
-                # Eğer det dictionary değilse, logla ve atla
-                print(f"Warning: Detection is not a dictionary: {type(det)} - {det}")
-                continue
 
-        # LIVE MOD: Tehlikeli nesne + person durumunda güven düşürme
-        if self.mode == "live_analysis":
-            enriched = self._apply_risk_based_confidence_adjustment(enriched)
+        # TEZİN ÖZGÜN MANTIĞI: ThreatAnalyzer ile bağlam duyarlı analiz
+        threat_results = self.threat_analyzer.analyze(enriched)
         
-        # Basit şüpheli etkileşim örneği: yüksek riskli bir nesne varsa bildir
-        suspicious_interactions: List[Dict[str, Any]] = []
-        high_risk = [d for d in enriched if d["risk_score"] >= 0.8]
-        if high_risk:
-            suspicious_interactions.append({
-                "type": "high_risk_object_detected",
-                "count": len(high_risk),
-                "max_risk": max(d["risk_score"] for d in high_risk),
-            })
+        # Analiz sonuçlarını ana tespit listesine işle
+        for threat in threat_results:
+            for det in enriched:
+                # Bbox eşleşmesi üzerinden ek bilgileri aktar
+                if det['bbox'] == threat['bbox']:
+                    det['alert_level'] = threat.get('alert_level')
+                    det['event_type'] = threat.get('event_type')
+                    det['associated_person_id'] = threat.get('associated_person_id')
+                    # Güvenlik puanını güncelle (silah taşıyorsa düşür)
+                    if threat.get('alert_level') == "CRITICAL":
+                        det['security_score'] = det['confidence'] * 0.4
 
-        # Bir sonraki kare için durumu güncelle
-        self.previous_detections = [
-            {
-                "bbox": d.get("bbox", [0.0, 0.0, 0.0, 0.0]),
-                "confidence": d.get("confidence", 0.0),
-                "track_id": d.get("track_id"),
-            }
-            for d in enriched
-        ]
-
-        # Kare ortalama güven skoru (video_analysis'taki kullanım için)
+        # Ortalama güven skoru
         avg_conf = float(np.mean([d.get("confidence", 0.0) for d in enriched])) if enriched else 0.0
 
         return {
             "detections": enriched,
-            "suspicious_interactions": suspicious_interactions,
+            "suspicious_interactions": threat_results, # Adli rapora giden kritik veri
             "confidence": avg_conf,
         }
-
-    def _apply_risk_based_confidence_adjustment(self, detections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        LIVE MOD: Tehlikeli nesne + person durumunda güveni düşür.
-        
-        Risk seviyeleri:
-        - YÜKSEK RİSK (gun, knife, weapon, pistol): %50 güven düşüşü
-        - ORTA RİSK (scissors, hammer, bat): %30 güven düşüşü
-        - DÜŞÜK RİSK (bottle, tool): %15 güven düşüşü
-        """
-        if self.mode != "live_analysis":
-            return detections
-        
-        # Risk seviyesi belirleme
-        high_risk_objects = ['gun', 'knife', 'weapon', 'pistol', 'rifle', 'firearm', 'machete']
-        medium_risk_objects = ['scissors', 'hammer', 'baseball_bat', 'crowbar', 'axe']
-        low_risk_objects = ['bottle', 'tool']
-        
-        # Person ve tehlikeli nesne tespitleri
-        persons = [d for d in detections if d.get("class_name", "").lower() in ["person", "people"]]
-        dangerous_objects = [
-            d for d in detections 
-            if d.get("class_name", "").lower() in high_risk_objects + medium_risk_objects + low_risk_objects
-        ]
-        
-        # Eğer person ve tehlikeli nesne birlikte varsa
-        if persons and dangerous_objects:
-            for person in persons:
-                person_bbox = person.get("bbox", [0, 0, 0, 0])
-                
-                # Check for overlap or extreme proximity
-                for danger_obj in dangerous_objects:
-                    danger_bbox = danger_obj.get("bbox", [0, 0, 0, 0])
-                    
-                    # Calculate IoU-like overlap or distance between centers
-                    iou = _iou(person_bbox, danger_bbox)
-                    
-                    # If person is holding or very close to the object (overlap > 0 or distance is small)
-                    if iou > 0:
-                        danger_class = danger_obj.get("class_name", "").lower()
-                        original_conf = person.get("confidence", 0.0)
-                        
-                        # Risk increase for the whole frame / person
-                        risk_ratio = 0.6 if danger_class in high_risk_objects else 0.3
-                        
-                        # Boost detection confidence for the dangerous object if it's within a person box
-                        danger_obj["confidence"] = min(0.99, danger_obj["confidence"] * 1.2)
-                        
-                        # Lower security score (confidence) for the person
-                        adjusted_conf = original_conf * (1 - risk_ratio)
-                        person["confidence"] = max(0.0, adjusted_conf)
-                        person["risk_adjusted"] = True
-                        person["risk_reason"] = f"Suspected interaction with {danger_class}"
-                        person["security_score"] = adjusted_conf
-        
-        return detections
-        
-        return detections
 
     def process(self, video_path: str) -> Dict[str, Any]:
         # Mevcut basit iskelet; video bazlı işleme üst seviye akışta yapılmakta
