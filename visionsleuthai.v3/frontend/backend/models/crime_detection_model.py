@@ -193,82 +193,83 @@ class CrimeDetectionModel:
                 frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
                 logger.debug(f"Resized frame from {original_shape} to {frame.shape} for faster inference")
 
-            # Run inference with optimizations for speed
-            # Use half precision (FP16) if available for faster inference
-            use_half = self.device.type == 'cuda' and torch.cuda.is_available()
-            
-            # Optimize inference settings for dangerous object detection
-            # Focus on speed while maintaining accuracy for weapons
-            results = self.model(
+            # Run inference with ByteTrack (SOTA tracking)
+            # persist=True ensures tracks are maintained across process_frame calls
+            results = self.model.track(
                 frame,
+                persist=True,
                 conf=self.confidence_threshold,
                 iou=self.iou_threshold,
-                agnostic_nms=True, # Improved: use agnostic NMS to avoid overlapping class suppression
-                half=use_half,  # Use FP16 on GPU for 2x speedup
-                verbose=False,  # Disable verbose output for speed
-                max_det=50,    # Improved: lower max detections for faster processing
-                imgsz=640,      # Fixed input size for consistent speed
+                agnostic_nms=True,
+                half=use_half,
+                verbose=False,
+                max_det=50,
+                imgsz=640,
+                tracker="bytetrack.yaml" # or "botsort.yaml"
             )[0]
 
             detections: List[Dict[str, Any]] = []
-            frame_height, frame_width = frame.shape[:2]
             
-            for r in results.boxes.data.tolist():
-                x1, y1, x2, y2, conf, cls = r
-                cls_idx = int(cls)
-                class_name = results.names[cls_idx]
+            # Results now contain tracking IDs
+            if results.boxes.id is not None:
+                boxes = results.boxes.xyxy.cpu().numpy()
+                confs = results.boxes.conf.cpu().numpy()
+                clss = results.boxes.cls.cpu().numpy()
+                ids = results.boxes.id.cpu().numpy()
                 
-                # LIVE MOD: Tüm nesneler algılanacak - boyut/mesafe sınırı YOK
-                if self.mode == "live_analysis":
-                    # Tüm detections kabul et - sınır yok
-                    pass
-                else:
-                    # VIDEO UPLOAD MOD: Orjinal filtreleme (DEĞİŞMEZ)
-                    # Boyut kontrolü (opsiyonel, orjinal kodda yoksa hiçbir şey yapma)
-                    pass
-                
-                # Map to dangerous object categories (with false positive filtering)
-                mapped_class = self._map_to_dangerous_object(class_name, float(conf), [float(x1), float(y1), float(x2), float(y2)])
-                
-                # LIVE MOD: Per-class threshold kullanma, sadece base threshold
-                if self.mode == "live_analysis":
-                    thr = self.confidence_threshold
-                else:
-                    # VIDEO UPLOAD MOD: Lower threshold for dangerous objects
-                    # Use even lower threshold for potentially dangerous objects
-                    if mapped_class in ['gun', 'weapon', 'knife', 'pistol', 'rifle', 'firearm']:
-                        # Very low threshold for weapons (0.25) since YOLOv8 doesn't detect them well
-                        thr = float(self.class_thresholds.get(mapped_class, 0.25))
-                        logger.debug(f"Using lower threshold {thr} for dangerous object: {mapped_class}")
+                for box, conf, cls, track_id in zip(boxes, confs, clss, ids):
+                    x1, y1, x2, y2 = box
+                    cls_idx = int(cls)
+                    class_name = results.names[cls_idx]
+                    
+                    mapped_class = self._map_to_dangerous_object(class_name, float(conf), [float(x1), float(y1), float(x2), float(y2)])
+                    
+                    # Version-based threshold logic
+                    if self.is_yolo11:
+                        thr = self.confidence_threshold
                     else:
                         thr = float(self.class_thresholds.get(mapped_class, self.confidence_threshold))
-                
-                calibrated = self._calibrate_conf(float(conf))
-                
-                # For video upload mode, also check original class name for weapon keywords
-                # This helps catch objects that might be weapons but not properly classified
-                if self.mode == "video_upload" and calibrated < thr:
-                    # Check if original class name contains weapon keywords
-                    class_lower = class_name.lower()
-                    weapon_keywords = ['gun', 'pistol', 'rifle', 'firearm', 'weapon', 'knife', 'blade']
-                    if any(keyword in class_lower for keyword in weapon_keywords):
-                        # Use even lower threshold for potential weapons
-                        thr = 0.20
-                        logger.debug(f"Potential weapon detected in {class_name}, using threshold {thr}")
-                
-                if calibrated < thr:
-                    continue
                     
-                # Calculate risk level
-                risk_level = self._calculate_risk_level(mapped_class, calibrated)
-                
-                detections.append({
-                    "class_name": mapped_class,
-                    "original_class": class_name,
-                    "confidence": calibrated,
-                    "bbox": [float(x1), float(y1), float(x2), float(y2)],
-                    "risk_level": risk_level
-                })
+                    calibrated = self._calibrate_conf(float(conf))
+                    
+                    if calibrated < thr:
+                        continue
+                        
+                    risk_level = self._calculate_risk_level(mapped_class, calibrated)
+                    
+                    detections.append({
+                        "class_name": mapped_class,
+                        "original_class": class_name,
+                        "confidence": calibrated,
+                        "bbox": [float(x1), float(y1), float(x2), float(y2)],
+                        "risk_level": risk_level,
+                        "track_id": int(track_id) # Built-in Track ID
+                    })
+            else:
+                # Fallback for frames with no tracks/detections
+                for r in results.boxes.data.tolist():
+                    # r might be [x1, y1, x2, y2, conf, cls] or [x1, y1, x2, y2, id, conf, cls]
+                    if len(r) == 7:
+                        x1, y1, x2, y2, track_id, conf, cls = r
+                    else:
+                        x1, y1, x2, y2, conf, cls = r
+                        track_id = -1
+                    
+                    cls_idx = int(cls)
+                    class_name = results.names[cls_idx]
+                    mapped_class = self._map_to_dangerous_object(class_name, float(conf), [float(x1), float(y1), float(x2), float(y2)])
+                    
+                    calibrated = self._calibrate_conf(float(conf))
+                    if calibrated < self.confidence_threshold: continue
+                    
+                    detections.append({
+                        "class_name": mapped_class,
+                        "original_class": class_name,
+                        "confidence": calibrated,
+                        "bbox": [float(x1), float(y1), float(x2), float(y2)],
+                        "risk_level": self._calculate_risk_level(mapped_class, calibrated),
+                        "track_id": int(track_id)
+                    })
 
             # LIVE MOD: Tüm nesneler için bounding box çiz (results.plot() kullan)
             annotated_frame = results.plot()

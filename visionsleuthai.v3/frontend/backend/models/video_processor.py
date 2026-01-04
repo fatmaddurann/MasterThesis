@@ -109,16 +109,12 @@ class VideoProcessor:
         return max(0.0, min(1.0, raw_score))
 
     def process_frame(self, frame: np.ndarray) -> Dict[str, Any]:
-        # Model çerçeve işleme
+        # Model çerçeve işleme - ARTIK TRACKING MODEL İÇİNDE YAPILIYOR
         detections, _annotated = self.model.process_frame(frame)
-
-        # Temporal smoothing (EMA)
-        detections = self._smooth_confidence(detections)
 
         # Risk skoru hesapla ve etiketle
         enriched: List[Dict[str, Any]] = []
         for det in detections:
-            # det zaten dictionary olmalı, ama güvenli erişim için kontrol et
             if isinstance(det, dict):
                 risk = self._assess_risk(det, frame.shape)
                 det_out = {
@@ -127,13 +123,8 @@ class VideoProcessor:
                     "confidence": float(det.get("confidence", 0.0)),
                     "bbox": det.get("bbox", [0.0, 0.0, 0.0, 0.0]),
                     "risk_score": risk,
+                    "track_id": det.get("track_id", 0) # Modelden gelen ID'yi kullan
                 }
-                # Track ID ataması: eğer önceki eşleşmeden gelmediyse yeni ID ver
-                if "track_id" in det:
-                    det_out["track_id"] = det["track_id"]
-                else:
-                    det_out["track_id"] = self.next_track_id
-                    self.next_track_id += 1
                 enriched.append(det_out)
             else:
                 # Eğer det dictionary değilse, logla ve atla
